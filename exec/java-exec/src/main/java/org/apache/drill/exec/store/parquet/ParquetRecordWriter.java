@@ -101,6 +101,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
 
   private Configuration conf;
   private String location;
+  private boolean append;
   private String prefix;
   private int index = 0;
   private OperatorContext oContext;
@@ -120,6 +121,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   @Override
   public void init(Map<String, String> writerOptions) throws IOException {
     this.location = writerOptions.get("location");
+    this.append = writerOptions.get("append").equalsIgnoreCase("true") ? true : false;
     this.prefix = writerOptions.get("prefix");
 
     conf = new Configuration();

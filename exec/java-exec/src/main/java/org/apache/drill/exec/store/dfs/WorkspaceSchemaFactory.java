@@ -51,13 +51,13 @@ import org.apache.drill.exec.dotdrill.DotDrillFile;
 import org.apache.drill.exec.dotdrill.DotDrillType;
 import org.apache.drill.exec.dotdrill.DotDrillUtil;
 import org.apache.drill.exec.dotdrill.View;
+import org.apache.drill.exec.planner.common.DrillTableMetadata;
 import org.apache.drill.exec.planner.logical.CreateTableEntry;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.DrillTranslatableTable;
 import org.apache.drill.exec.planner.logical.DrillViewTable;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.planner.logical.FileSystemCreateTableEntry;
-import org.apache.drill.exec.planner.sql.DrillOperatorTable;
 import org.apache.drill.exec.planner.sql.ExpandingConcurrentMap;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.PartitionNotFoundException;
@@ -480,8 +480,10 @@ public class WorkspaceSchemaFactory {
     public Table getTable(String tableName) {
       TableInstance tableKey = new TableInstance(new TableSignature(tableName), ImmutableList.of());
       // first check existing tables.
-      if (tables.alreadyContainsKey(tableKey)) {
-        return tables.get(tableKey);
+      if(tables.alreadyContainsKey(tableKey)) {
+        final DrillTable table = tables.get(tableKey);
+        setMetadataTable(table, tableName);
+        return table;
       }
 
       // then look for files that start with this name and end in .drill.
@@ -521,7 +523,26 @@ public class WorkspaceSchemaFactory {
         logger.debug("The filesystem for this workspace does not support this operation.", e);
       }
 
-      return tables.get(tableKey);
+      final DrillTable table = tables.get(tableKey);
+      setMetadataTable(table, tableName);
+      return table;
+    }
+
+    private void setMetadataTable(final DrillTable table, final String tableName) {
+      if (table == null) {
+        return;
+      }
+
+      if (tableName.toLowerCase().endsWith(".stats.drill")) {
+        return;
+      }
+
+      if (table.getDrillTableMetadata() == null) {
+        Table metadataTable = getMetadataTable(tableName);
+        if (metadataTable != null) {
+          table.setDrillTableMetadata(new DrillTableMetadata(metadataTable, getMetadataTablePath(tableName)));
+        }
+      }
     }
 
     @Override
@@ -538,9 +559,37 @@ public class WorkspaceSchemaFactory {
     }
 
     @Override
+    public CreateTableEntry appendToTable(String tableName) {
+      FormatPlugin formatPlugin = plugin.getFormatPlugin("json");
+      return createOrAppendToTable(tableName, true, formatPlugin, ImmutableList.<String>of());
+    }
+
+    @Override
+    public CreateTableEntry appendToMetadataTable(String tableName) {
+      return appendToTable(tableName + ".stats.drill");
+    }
+
+    @Override
+    public Table getMetadataTable(String name) {
+      return !name.endsWith(".stats.drill") ?
+              getTable(name + ".stats.drill") : null;
+    }
+
+    @Override
+    public String getMetadataTablePath(String name) {
+      return !name.endsWith(".stats.drill") ? getFullSchemaName() + ".`" + name + ".stats.drill`" : null;
+    }
+
+    @Override
     public CreateTableEntry createNewTable(String tableName, List<String> partitonColumns) {
       String storage = schemaConfig.getOption(ExecConstants.OUTPUT_FORMAT_OPTION).string_val;
       FormatPlugin formatPlugin = plugin.getFormatPlugin(storage);
+
+      return createOrAppendToTable(tableName, false, formatPlugin, partitonColumns);
+    }
+
+    private CreateTableEntry createOrAppendToTable(String tableName, boolean append, FormatPlugin formatPlugin,
+        List<String> partitonColumns) {
       if (formatPlugin == null) {
         throw new UnsupportedOperationException(
           String.format("Unsupported format '%s' in workspace '%s'", config.getDefaultInputFormat(),
@@ -551,6 +600,7 @@ public class WorkspaceSchemaFactory {
           (FileSystemConfig) plugin.getConfig(),
           formatPlugin,
           config.getLocation() + Path.SEPARATOR + tableName,
+          append,
           partitonColumns);
     }
 

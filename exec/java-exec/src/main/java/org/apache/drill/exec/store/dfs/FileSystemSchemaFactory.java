@@ -155,6 +155,11 @@ public class FileSystemSchemaFactory implements SchemaFactory{
     }
 
     @Override
+    public CreateTableEntry appendToTable(String tableName) {
+      return defaultSchema.appendToTable(tableName);
+    }
+
+    @Override
     public AbstractSchema getDefaultSchema() {
       return defaultSchema;
     }

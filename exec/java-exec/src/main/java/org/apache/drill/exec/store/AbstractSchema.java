@@ -126,6 +126,23 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
         .build(logger);
   }
 
+  public CreateTableEntry appendToTable(String tableName) {
+    throw new UnsupportedOperationException("Appending to tables is not allowed in this schema");
+  }
+
+  public CreateTableEntry appendToMetadataTable(String tableName) {
+    throw new UnsupportedOperationException("Table statistics not supported in this schema");
+  }
+
+  public Table getMetadataTable(String name) {
+    throw new UnsupportedOperationException("Table statistics not supported in this schema");
+
+  }
+
+  public String getMetadataTablePath(String name) {
+    throw new UnsupportedOperationException("Table statistics not supported in this schema");
+  }
+
   /**
    * Reports whether to show items from this schema in INFORMATION_SCHEMA
    * tables.

@@ -100,7 +100,7 @@ public abstract class InfoSchemaPushFilterIntoRecordGenerator extends StoragePlu
     final InfoSchemaGroupScan newGroupsScan = new InfoSchemaGroupScan(groupScan.getTable(), infoSchemaFilter);
     newGroupsScan.setFilterPushedDown(true);
 
-    RelNode input = ScanPrel.create(scan, filter.getTraitSet(), newGroupsScan, scan.getRowType());
+    RelNode input = ScanPrel.create(scan, filter.getTraitSet(), scan.getDrillTable(), newGroupsScan, scan.getRowType());
     if (project != null) {
       input = project.copy(project.getTraitSet(), input, project.getProjects(), filter.getRowType());
     }

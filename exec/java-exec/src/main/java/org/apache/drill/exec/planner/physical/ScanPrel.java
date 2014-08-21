@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.planner.cost.DrillCostBase.DrillCostFactory;
+import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.calcite.rel.AbstractRelNode;
@@ -45,23 +46,25 @@ public class ScanPrel extends AbstractRelNode implements DrillScanPrel {
 
   protected final GroupScan groupScan;
   private final RelDataType rowType;
+  private final DrillTable drillTable;
 
-  public ScanPrel(RelOptCluster cluster, RelTraitSet traits,
+  public ScanPrel(RelOptCluster cluster, RelTraitSet traits, DrillTable drillTable,
       GroupScan groupScan, RelDataType rowType) {
     super(cluster, traits);
     this.groupScan = getCopy(groupScan);
     this.rowType = rowType;
+    this.drillTable = drillTable;
   }
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new ScanPrel(this.getCluster(), traitSet, groupScan,
+    return new ScanPrel(this.getCluster(), traitSet, drillTable, groupScan,
         this.rowType);
   }
 
   @Override
   protected Object clone() throws CloneNotSupportedException {
-    return new ScanPrel(this.getCluster(), this.getTraitSet(), getCopy(groupScan),
+    return new ScanPrel(this.getCluster(), this.getTraitSet(), drillTable, getCopy(groupScan),
         this.rowType);
   }
 
@@ -84,9 +87,9 @@ public class ScanPrel extends AbstractRelNode implements DrillScanPrel {
     return groupScan;
   }
 
-  public static ScanPrel create(RelNode old, RelTraitSet traitSets,
+  public static ScanPrel create(RelNode old, RelTraitSet traitSets, DrillTable drillTable,
       GroupScan scan, RelDataType rowType) {
-    return new ScanPrel(old.getCluster(), traitSets, getCopy(scan), rowType);
+    return new ScanPrel(old.getCluster(), traitSets, drillTable, getCopy(scan), rowType);
   }
 
   @Override
@@ -160,5 +163,9 @@ public class ScanPrel extends AbstractRelNode implements DrillScanPrel {
   @Override
   public boolean needsFinalColumnReordering() {
     return true;
+  }
+
+  public DrillTable getDrillTable() {
+    return drillTable;
   }
 }
