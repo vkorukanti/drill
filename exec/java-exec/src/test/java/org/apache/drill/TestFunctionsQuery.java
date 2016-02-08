@@ -17,7 +17,10 @@
  */
 package org.apache.drill;
 
+
+import com.google.common.collect.ImmutableMap;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
+import org.apache.drill.exec.util.TSI;
 import org.joda.time.DateTime;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -25,6 +28,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import static org.apache.drill.exec.expr.fn.impl.DateUtility.formatDate;
 import static org.apache.drill.exec.expr.fn.impl.DateUtility.formatTimeStamp;
@@ -912,4 +916,62 @@ public class TestFunctionsQuery extends BaseTestQuery {
         .baselineValues("foo")
         .go();
   }
+
+  @Test
+  public void testTimestampAdd() throws Exception {
+    String query = "select timestampadd(%s, 2, timestamp '2015-03-30 20:49:59.000') as ts from (values(1))";
+    Map<TSI, DateTime> results = ImmutableMap.<TSI, DateTime>builder()
+        .put(TSI.MICROSECOND, formatTimeStamp.parseDateTime("2015-03-30 20:49:59.002"))
+        .put(TSI.SECOND, formatTimeStamp.parseDateTime("2015-03-30 20:50:01.000"))
+        .put(TSI.MINUTE, formatTimeStamp.parseDateTime("2015-03-30 20:51:59.000"))
+        .put(TSI.HOUR, formatTimeStamp.parseDateTime("2015-03-30 22:49:59.000"))
+        .put(TSI.DAY, formatTimeStamp.parseDateTime("2015-04-01 20:49:59.000"))
+        .put(TSI.WEEK, formatTimeStamp.parseDateTime("2015-04-13 20:49:59.000"))
+        .put(TSI.MONTH, formatTimeStamp.parseDateTime("2015-05-30 20:49:59.000"))
+        .put(TSI.QUARTER, formatTimeStamp.parseDateTime("2015-09-30 20:49:59.000"))
+        .put(TSI.YEAR, formatTimeStamp.parseDateTime("2017-03-30 20:49:59.000"))
+        .build();
+
+    for (Map.Entry<TSI, DateTime> entry : results.entrySet()) {
+      for (String name : entry.getKey().getNames()) {
+        testBuilder()
+            .sqlQuery(String.format(query, name))
+            .unOrdered()
+            .baselineColumns("ts")
+            .baselineValues(entry.getValue())
+            .go();
+      }
+    }
+  }
+
+  @Test
+  public void testTimestampDiff() throws Exception {
+    String query = "select " +
+        "timestampdiff(%s, timestamp '2017-03-30 22:50:59.050', timestamp '2015-09-10 20:49:42.000') as diff " +
+        "from (values(1))";
+    Map<TSI, Long> results = ImmutableMap.<TSI, Long>builder()
+        .put(TSI.MICROSECOND, 48996077050L)
+        .put(TSI.SECOND, 48996077L)
+        .put(TSI.MINUTE, 816601L)
+        .put(TSI.HOUR, 13610L)
+        .put(TSI.DAY, 567L)
+        .put(TSI.WEEK, 81L)
+        .put(TSI.MONTH, 18L)
+        .put(TSI.QUARTER, 6L)
+        .put(TSI.YEAR, 1L)
+        .build();
+
+    for (Map.Entry<TSI, Long> entry : results.entrySet()) {
+      for (String name : entry.getKey().getNames()) {
+        testBuilder()
+            .sqlQuery(String.format(query, name))
+            .unOrdered()
+            .baselineColumns("diff")
+            .baselineValues(entry.getValue())
+            .go();
+      }
+    }
+
+  }
+
 }
