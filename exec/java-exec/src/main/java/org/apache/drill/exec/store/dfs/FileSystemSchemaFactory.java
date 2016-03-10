@@ -155,8 +155,18 @@ public class FileSystemSchemaFactory implements SchemaFactory{
     }
 
     @Override
-    public CreateTableEntry appendToTable(String tableName) {
-      return defaultSchema.appendToTable(tableName);
+    public CreateTableEntry createStatsTable(String tableName) {
+      return defaultSchema.createStatsTable(tableName);
+    }
+
+    @Override
+    public CreateTableEntry appendToStatsTable(String tableName) {
+      return defaultSchema.appendToStatsTable(tableName);
+    }
+
+    @Override
+    public Table getStatsTable(String tableName) {
+      return defaultSchema.getStatsTable(tableName);
     }
 
     @Override

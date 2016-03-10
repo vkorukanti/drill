@@ -24,10 +24,8 @@ import org.apache.calcite.rel.metadata.RelMdRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.drill.exec.planner.common.DrillScanRelBase;
-import org.apache.drill.exec.planner.common.DrillTableMetadata;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
-import org.apache.drill.exec.planner.logical.DrillTable;
 
 public class DrillRelMdRowCount extends RelMdRowCount{
   private static final DrillRelMdRowCount INSTANCE = new DrillRelMdRowCount();
@@ -54,7 +52,7 @@ public class DrillRelMdRowCount extends RelMdRowCount{
   }
 
   private Double getRowCount(DrillScanRel scanRel) {
-    final DrillTableMetadata md = scanRel.getDrillTable().getDrillTableMetadata();
+    final DrillStatsTable md = scanRel.getDrillTable().getStatsTable();
     if (md != null) {
       return md.getRowCount();
     }

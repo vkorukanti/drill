@@ -33,6 +33,9 @@ import org.apache.drill.exec.planner.torel.ConversionContext;
 
 import java.util.List;
 
+/**
+ * Drill logical node for "Analyze".
+ */
 public class DrillAnalyzeRel extends SingleRel implements DrillRel {
 
   public DrillAnalyzeRel(RelOptCluster cluster, RelTraitSet traits, RelNode child) {

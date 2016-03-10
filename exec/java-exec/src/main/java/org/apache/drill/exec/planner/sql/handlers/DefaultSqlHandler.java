@@ -67,7 +67,7 @@ import org.apache.drill.exec.physical.impl.join.JoinUtils;
 import org.apache.drill.exec.planner.PlannerPhase;
 import org.apache.drill.exec.planner.PlannerType;
 import org.apache.drill.exec.planner.common.DrillRelOptUtil;
-import org.apache.drill.exec.planner.common.DrillTableMetadata;
+import org.apache.drill.exec.planner.common.DrillStatsTable.StatsMaterializationVisitor;
 import org.apache.drill.exec.planner.cost.DrillDefaultRelMetadataProvider;
 import org.apache.drill.exec.planner.logical.DrillProjectRel;
 import org.apache.drill.exec.planner.logical.DrillRel;
@@ -208,7 +208,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
    */
   protected DrillRel convertToDrel(final RelNode relNode) throws SqlUnsupportedException, RelConversionException {
     try {
-      DrillTableMetadata.MaterializationVisitor.materialize(relNode, context);
+      StatsMaterializationVisitor.materialize(relNode, context);
 
       final RelNode convertedRelNode;
 

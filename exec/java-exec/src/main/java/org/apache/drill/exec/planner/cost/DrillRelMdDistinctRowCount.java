@@ -27,8 +27,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.drill.exec.planner.common.DrillScanRelBase;
-import org.apache.drill.exec.planner.common.DrillTableMetadata;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
 
 import java.util.List;
@@ -56,7 +55,7 @@ public class DrillRelMdDistinctRowCount extends RelMdDistinctRowCount{
    * column").
    */
   private Double getDistinctRowCount(DrillScanRel scan, ImmutableBitSet groupKey) {
-    if (scan.getDrillTable() == null || scan.getDrillTable().getDrillTableMetadata() == null) {
+    if (scan.getDrillTable() == null || scan.getDrillTable().getStatsTable() == null) {
       // If there is no table or metadata (stats) table associated with scan, estimate the distinct row count.
       // Consistent with the estimation of Aggregate row count in RelMdRowCount : distinctRowCount = rowCount * 10%.
       return scan.getRows() * 0.1;
@@ -69,7 +68,7 @@ public class DrillRelMdDistinctRowCount extends RelMdDistinctRowCount{
       return new Double(0);
     }
 
-    DrillTableMetadata md = scan.getDrillTable().getDrillTableMetadata();
+    DrillStatsTable md = scan.getDrillTable().getStatsTable();
 
     final double rc = RelMetadataQuery.getRowCount(scan);
     double s = 1.0;

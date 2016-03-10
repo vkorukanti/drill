@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.dfs;
 import static com.google.common.collect.Collections2.transform;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Collections.unmodifiableList;
+import static org.apache.drill.exec.dotdrill.DotDrillType.STATS;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -51,7 +52,7 @@ import org.apache.drill.exec.dotdrill.DotDrillFile;
 import org.apache.drill.exec.dotdrill.DotDrillType;
 import org.apache.drill.exec.dotdrill.DotDrillUtil;
 import org.apache.drill.exec.dotdrill.View;
-import org.apache.drill.exec.planner.common.DrillTableMetadata;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.CreateTableEntry;
 import org.apache.drill.exec.planner.logical.DrillTable;
 import org.apache.drill.exec.planner.logical.DrillTranslatableTable;
@@ -62,6 +63,7 @@ import org.apache.drill.exec.planner.sql.ExpandingConcurrentMap;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.PartitionNotFoundException;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.easy.json.JSONFormatPlugin;
 import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -166,6 +168,23 @@ public class WorkspaceSchemaFactory {
 
   private Path getViewPath(String name) {
     return DotDrillType.VIEW.getPath(config.getLocation(), name);
+  }
+
+  // Get stats table name for a given table name.
+  // TODO: Handle the case where the tableName is just a single file, instead of a directory
+  private static String getStatsTableName(final String tableName) {
+    return tableName + Path.SEPARATOR + "." + tableName + STATS.getEnding();
+  }
+
+  // Ensure given tableName is not a stats table
+  private static void ensureNotStatsTable(final String tableName) {
+    if (tableName.toLowerCase().endsWith(STATS.getEnding())) {
+      throw UserException
+          .validationError()
+          .message("Given table [%s] is already a stats table. " +
+              "Cannot perform stats operations on a stats table.", tableName)
+          .build(logger);
+    }
   }
 
   public WorkspaceSchema createSchema(List<String> parentSchemaPath, SchemaConfig schemaConfig) throws IOException {
@@ -480,10 +499,8 @@ public class WorkspaceSchemaFactory {
     public Table getTable(String tableName) {
       TableInstance tableKey = new TableInstance(new TableSignature(tableName), ImmutableList.of());
       // first check existing tables.
-      if(tables.alreadyContainsKey(tableKey)) {
-        final DrillTable table = tables.get(tableKey);
-        setMetadataTable(table, tableName);
-        return table;
+      if (tables.alreadyContainsKey(tableKey)) {
+        return tables.get(tableKey);
       }
 
       // then look for files that start with this name and end in .drill.
@@ -533,14 +550,15 @@ public class WorkspaceSchemaFactory {
         return;
       }
 
-      if (tableName.toLowerCase().endsWith(".stats.drill")) {
+      // If this itself is the stats table, then skip it.
+      if (tableName.toLowerCase().endsWith(STATS.getEnding())) {
         return;
       }
 
-      if (table.getDrillTableMetadata() == null) {
-        Table metadataTable = getMetadataTable(tableName);
-        if (metadataTable != null) {
-          table.setDrillTableMetadata(new DrillTableMetadata(metadataTable, getMetadataTablePath(tableName)));
+      if (table.getStatsTable() == null) {
+        Table statsTable = getStatsTable(tableName);
+        if (statsTable != null) {
+          table.setStatsTable(new DrillStatsTable(getFullSchemaName(), getStatsTableName(tableName)));
         }
       }
     }
@@ -559,33 +577,32 @@ public class WorkspaceSchemaFactory {
     }
 
     @Override
-    public CreateTableEntry appendToTable(String tableName) {
-      FormatPlugin formatPlugin = plugin.getFormatPlugin("json");
-      return createOrAppendToTable(tableName, true, formatPlugin, ImmutableList.<String>of());
-    }
-
-    @Override
-    public CreateTableEntry appendToMetadataTable(String tableName) {
-      return appendToTable(tableName + ".stats.drill");
-    }
-
-    @Override
-    public Table getMetadataTable(String name) {
-      return !name.endsWith(".stats.drill") ?
-              getTable(name + ".stats.drill") : null;
-    }
-
-    @Override
-    public String getMetadataTablePath(String name) {
-      return !name.endsWith(".stats.drill") ? getFullSchemaName() + ".`" + name + ".stats.drill`" : null;
-    }
-
-    @Override
     public CreateTableEntry createNewTable(String tableName, List<String> partitonColumns) {
       String storage = schemaConfig.getOption(ExecConstants.OUTPUT_FORMAT_OPTION).string_val;
       FormatPlugin formatPlugin = plugin.getFormatPlugin(storage);
 
       return createOrAppendToTable(tableName, false, formatPlugin, partitonColumns);
+    }
+
+    @Override
+    public CreateTableEntry createStatsTable(String tableName) {
+      ensureNotStatsTable(tableName);
+      final String statsTableName = getStatsTableName(tableName);
+      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.DEFAULT_NAME);
+      return createOrAppendToTable(statsTableName, false, formatPlugin, ImmutableList.<String>of());
+    }
+
+    @Override
+    public CreateTableEntry appendToStatsTable(String tableName) {
+      ensureNotStatsTable(tableName);
+      final String statsTableName = getStatsTableName(tableName);
+      FormatPlugin formatPlugin = plugin.getFormatPlugin(JSONFormatPlugin.DEFAULT_NAME);
+      return createOrAppendToTable(statsTableName, true, formatPlugin, ImmutableList.<String>of());
+    }
+
+    @Override
+    public Table getStatsTable(String tableName) {
+      return getTable(getStatsTableName(tableName));
     }
 
     private CreateTableEntry createOrAppendToTable(String tableName, boolean append, FormatPlugin formatPlugin,
@@ -607,10 +624,6 @@ public class WorkspaceSchemaFactory {
     @Override
     public String getTypeName() {
       return FileSystemConfig.NAME;
-    }
-
-    private DrillTable isReadable(FormatMatcher m, FileSelection fileSelection) throws IOException {
-      return m.isReadable(fs, fileSelection, plugin, storageEngineName, schemaConfig.getUserName());
     }
 
     @Override

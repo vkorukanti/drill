@@ -47,9 +47,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
 public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
+  public static final String DEFAULT_NAME = "json";
 
   private static final boolean IS_COMPRESSIBLE = true;
-  private static final String DEFAULT_NAME = "json";
 
   public JSONFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
     this(name, context, fsConf, storageConfig, new JSONFormatConfig());

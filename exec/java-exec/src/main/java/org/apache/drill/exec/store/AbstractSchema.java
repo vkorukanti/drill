@@ -126,21 +126,38 @@ public abstract class AbstractSchema implements Schema, SchemaPartitionExplorer,
         .build(logger);
   }
 
-  public CreateTableEntry appendToTable(String tableName) {
-    throw new UnsupportedOperationException("Appending to tables is not allowed in this schema");
+  /**
+   * Create stats table entry for given <i>tableName</i>.
+   * @param tableName
+   * @return
+   */
+  public CreateTableEntry createStatsTable(String tableName) {
+    throw UserException.unsupportedError()
+        .message("Statistics tables are not supported in schema [%s]", getSchemaPath())
+        .build(logger);
   }
 
-  public CreateTableEntry appendToMetadataTable(String tableName) {
-    throw new UnsupportedOperationException("Table statistics not supported in this schema");
+  /**
+   * Create an append statistics table entry for given <i>tableName</i>. If there is not existing
+   * statistics table, a new one is created.
+   * @param tableName
+   * @return
+   */
+  public CreateTableEntry appendToStatsTable(String tableName) {
+    throw UserException.unsupportedError()
+        .message("Statistics tables are not supported in schema [%s]", getSchemaPath())
+        .build(logger);
   }
 
-  public Table getMetadataTable(String name) {
-    throw new UnsupportedOperationException("Table statistics not supported in this schema");
-
-  }
-
-  public String getMetadataTablePath(String name) {
-    throw new UnsupportedOperationException("Table statistics not supported in this schema");
+  /**
+   * Get the statistics table for given <i>tableName</i>
+   * @param tableName
+   * @return
+   */
+  public Table getStatsTable(String tableName) {
+    throw UserException.unsupportedError()
+        .message("Statistics tables are not supported in schema [%s]", getSchemaPath())
+        .build(logger);
   }
 
   /**
