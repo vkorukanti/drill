@@ -30,19 +30,12 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("unpivot-maps")
 public class UnpivotMaps extends AbstractSingle {
-
-  private final String keyField;
   private final List<String> dataFields;
 
   @JsonCreator
-  public UnpivotMaps(@JsonProperty("child") PhysicalOperator child, String keyField, List<String> dataFields) {
+  public UnpivotMaps(@JsonProperty("child") PhysicalOperator child, List<String> dataFields) {
     super(child);
-    this.keyField = keyField;
     this.dataFields = dataFields;
-  }
-
-  public String getKeyField() {
-    return keyField;
   }
 
   public List<String> getDataFields() {
@@ -56,7 +49,7 @@ public class UnpivotMaps extends AbstractSingle {
 
   @Override
   protected PhysicalOperator getNewWithChild(PhysicalOperator child) {
-    return new UnpivotMaps(child, keyField, dataFields);
+    return new UnpivotMaps(child, dataFields);
   }
 
   @Override

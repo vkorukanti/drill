@@ -49,15 +49,11 @@ import java.util.List;
 public class StatisticsAggBatch extends StreamingAggBatch {
   private List<String> functions;
   private int schema = 0;
-  private String[] extrakeys;
 
   public StatisticsAggBatch(StatisticsAggregate popConfig, RecordBatch incoming, FragmentContext context)
       throws OutOfMemoryException {
     super(popConfig, incoming, context);
     this.functions = popConfig.getFunctions();
-
-    final String[] eks = {"extrakey"};
-    this.extrakeys = eks;
   }
 
   private void createKeyColumn(String name, LogicalExpression expr, List<LogicalExpression> keyExprs, List<TypedFieldId> keyOutputIds)
@@ -101,10 +97,8 @@ public class StatisticsAggBatch extends StreamingAggBatch {
     );
 
     Class<? extends ValueVector> vvc =
-        (Class<? extends ValueVector>) TypeHelper.getValueVectorClass(
-            mle.getMajorType().getMinorType(),
-            mle.getMajorType().getMode()
-        );
+        TypeHelper.getValueVectorClass(mle.getMajorType().getMinorType(), mle.getMajorType().getMode());
+
     ValueVector vv = parent.addOrGet(name, mle.getMajorType(), vvc);
 
     TypedFieldId pfid = container.getValueVectorId(SchemaPath.getSimplePath(parent.getField().getPath()));
@@ -203,14 +197,6 @@ public class StatisticsAggBatch extends StreamingAggBatch {
         keyExprs,
         keyOutputIds
     );
-
-    for (String k : extrakeys) {
-      for (MaterializedField mf : incoming.getSchema()) {
-        if (mf.getLastName().equalsIgnoreCase(k)) {
-          createKeyColumn(k, SchemaPath.getSimplePath(mf.getPath()), keyExprs, keyOutputIds);
-        }
-      }
-    }
 
     MapVector cparent = new MapVector("column", oContext.getAllocator(), null);
     container.add(cparent);

@@ -23,7 +23,6 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
-import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.DrillAnalyzeRel;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
@@ -52,12 +51,9 @@ public class AnalyzePrule extends Prule {
     final RelTraitSet traits = input.getTraitSet().plus(Prel.DRILL_PHYSICAL).plus(DrillDistributionTrait.SINGLETON);
     final RelNode convertedInput = convert(input, traits);
 
-    SingleRel newAnalyze = new UnpivotMapsPrel(
-        new StatsAggPrel(convertedInput, analyze.getCluster(), FUNCTIONS),
-        analyze.getCluster(),
-        DrillStatsTable.COL_COLUMN,
-        FUNCTIONS
-    );
+    final StatsAggPrel statsAggPrel = new StatsAggPrel(convertedInput, analyze.getCluster(), FUNCTIONS);
+    final SingleRel newAnalyze = new UnpivotMapsPrel(statsAggPrel, analyze.getCluster(), FUNCTIONS);
+
     call.transformTo(newAnalyze);
   }
 }

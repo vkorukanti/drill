@@ -28,28 +28,22 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.UnpivotMaps;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMaps> {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMapsRecordBatch.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMapsRecordBatch.class);
 
-  private final String keyField;
   private final List<String> dataFields;
 
-  WritableBatch incomingData;
-  VarCharVector keyVec;
   int keyIndex = 0;
   List<String> keyList = null;
   Map<MaterializedField, Map<String, ValueVector>> dataSrcVecMap = null;
@@ -64,11 +58,7 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
   public UnpivotMapsRecordBatch(UnpivotMaps pop, RecordBatch incoming, FragmentContext context)
       throws OutOfMemoryException {
     super(pop, context, incoming);
-    this.keyField = pop.getKeyField();
     this.dataFields = pop.getDataFields();
-
-    //TODO: fix this... it's terrible...
-    dataFields.add(keyField);
   }
 
   @Override
@@ -142,16 +132,9 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
 
   private void buildKeyList() {
     for (VectorWrapper<?> vw : incoming) {
-      String kf = vw.getField().getLastName();
-
-      if (kf != keyField) {
-        continue;
-      }
-
-      // assert keyList == null;
       keyList = Lists.newArrayList();
 
-      for (ValueVector vv : (MapVector) vw.getValueVector()) {
+      for (ValueVector vv : vw.getValueVector()) {
         keyList.add(vv.getField().getLastName());
       }
     }
@@ -224,12 +207,7 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
   }
 
   @Override
-  protected boolean setupNewSchema()
-      throws SchemaChangeException {
-    if (incoming.getSchema().getSelectionVectorMode() != SelectionVectorMode.NONE) {
-      throw new UnsupportedOperationException("Selection vector not supported by unpivotMaps");
-    }
-
+  protected boolean setupNewSchema() throws SchemaChangeException {
     container.clear();
 
     buildKeyList();

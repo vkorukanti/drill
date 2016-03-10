@@ -33,18 +33,16 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 public class UnpivotMapsPrel extends SingleRel implements Prel, DrillRelNode {
 
-  private String keyField;
   private List<String> dataFields;
 
-  public UnpivotMapsPrel(RelNode child, RelOptCluster cluster, String keyField, List<String> dataFields) {
+  public UnpivotMapsPrel(RelNode child, RelOptCluster cluster, List<String> dataFields) {
     super(cluster, child.getTraitSet(), child);
-    this.keyField = keyField;
     this.dataFields = dataFields;
   }
 
   @Override
   public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
-    return new UnpivotMapsPrel(sole(inputs), getCluster(), keyField, dataFields);
+    return new UnpivotMapsPrel(sole(inputs), getCluster(), dataFields);
   }
 
   @Override
@@ -54,7 +52,7 @@ public class UnpivotMapsPrel extends SingleRel implements Prel, DrillRelNode {
 
     PhysicalOperator childPOP = child.getPhysicalOperator(creator);
 
-    UnpivotMaps um = new UnpivotMaps(childPOP, keyField, dataFields);
+    UnpivotMaps um = new UnpivotMaps(childPOP, dataFields);
     return creator.addMetadata(this, um);
   }
 
