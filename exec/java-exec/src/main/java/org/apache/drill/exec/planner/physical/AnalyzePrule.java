@@ -23,19 +23,22 @@ import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.DrillAnalyzeRel;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
 
-import com.google.common.collect.Lists;
-
 import java.util.List;
 
-@SuppressWarnings("unused")
 public class AnalyzePrule extends Prule {
   public static final RelOptRule INSTANCE = new AnalyzePrule();
 
-  private static final List<String> FUNCTIONS = ImmutableList.of("statcount", "nonnullstatcount", "ndv", "hll");
+  private static final List<String> FUNCTIONS = ImmutableList.of(
+      "statcount", // total number of entries in the table
+      "nonnullstatcount", // total number of non-null entries in the table
+      "ndv",  // total distinctive values in table
+      "hll" // HyperLogLog
+  );
 
   public AnalyzePrule() {
     super(RelOptHelper.some(DrillAnalyzeRel.class, DrillRel.DRILL_LOGICAL, RelOptHelper.any(RelNode.class)), "Prel.AnalyzePrule");
@@ -52,7 +55,7 @@ public class AnalyzePrule extends Prule {
     SingleRel newAnalyze = new UnpivotMapsPrel(
         new StatsAggPrel(convertedInput, analyze.getCluster(), FUNCTIONS),
         analyze.getCluster(),
-        "column",
+        DrillStatsTable.COL_COLUMN,
         FUNCTIONS
     );
     call.transformTo(newAnalyze);

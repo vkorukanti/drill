@@ -30,10 +30,10 @@ import com.google.common.base.Preconditions;
 
 @SuppressWarnings("unused")
 public class StatisticsAggBatchCreator implements BatchCreator<StatisticsAggregate>{
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StatisticsAggBatchCreator.class);
 
   @Override
-  public CloseableRecordBatch getBatch(FragmentContext context, StatisticsAggregate config, List<RecordBatch> children) throws ExecutionSetupException {
+  public CloseableRecordBatch getBatch(FragmentContext context, StatisticsAggregate config, List<RecordBatch> children)
+      throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
     return new StatisticsAggBatch(config, children.iterator().next(), context);
   }

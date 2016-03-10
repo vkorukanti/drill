@@ -29,12 +29,10 @@ import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
 public class StatsAggPrel extends SingleRel implements DrillRelNode, Prel {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StatsAggPrel.class);
 
   private List<String> functions;
 

@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.config;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.drill.exec.physical.base.AbstractSingle;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
@@ -38,7 +37,7 @@ public class StatisticsAggregate extends StreamingAggregate {
   @JsonCreator
   public StatisticsAggregate(
       @JsonProperty("child") PhysicalOperator child,
-      @JsonProperty("funcs") List<String> functions) {
+      @JsonProperty("functions") List<String> functions) {
     super(child, null, null, 0.f);
     this.functions = ImmutableList.copyOf(functions);
   }

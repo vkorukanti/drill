@@ -30,7 +30,6 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("unpivot-maps")
 public class UnpivotMaps extends AbstractSingle {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMaps.class);
 
   private final String keyField;
   private final List<String> dataFields;

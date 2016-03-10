@@ -32,7 +32,7 @@ import org.apache.drill.exec.planner.physical.visitor.PrelVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 public class UnpivotMapsPrel extends SingleRel implements Prel, DrillRelNode {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMapsPrel.class);
+
   private String keyField;
   private List<String> dataFields;
 

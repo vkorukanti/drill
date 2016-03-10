@@ -30,10 +30,10 @@ import com.google.common.base.Preconditions;
 
 @SuppressWarnings("unused")
 public class UnpivotMapsBatchCreator implements BatchCreator<UnpivotMaps>{
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMapsBatchCreator.class);
 
   @Override
-  public CloseableRecordBatch getBatch(FragmentContext context, UnpivotMaps config, List<RecordBatch> children) throws ExecutionSetupException {
+  public CloseableRecordBatch getBatch(FragmentContext context, UnpivotMaps config, List<RecordBatch> children)
+      throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
     return new UnpivotMapsRecordBatch(config, children.iterator().next(), context);
   }
