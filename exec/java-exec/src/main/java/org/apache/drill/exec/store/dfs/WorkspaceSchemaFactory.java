@@ -43,6 +43,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TableMacro;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.drill.common.config.LogicalPlanPersistence;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.FormatPluginConfig;
@@ -168,12 +169,6 @@ public class WorkspaceSchemaFactory {
 
   private Path getViewPath(String name) {
     return DotDrillType.VIEW.getPath(config.getLocation(), name);
-  }
-
-  // Get stats table name for a given table name.
-  // TODO: Handle the case where the tableName is just a single file, instead of a directory
-  private static String getStatsTableName(final String tableName) {
-    return tableName + Path.SEPARATOR + "." + tableName + STATS.getEnding();
   }
 
   // Ensure given tableName is not a stats table
@@ -555,11 +550,31 @@ public class WorkspaceSchemaFactory {
         return;
       }
 
-      if (table.getStatsTable() == null) {
-        Table statsTable = getStatsTable(tableName);
-        if (statsTable != null) {
-          table.setStatsTable(new DrillStatsTable(getFullSchemaName(), getStatsTableName(tableName)));
+      try {
+        if (table.getStatsTable() == null) {
+          Table statsTable = getStatsTable(tableName);
+          if (statsTable != null) {
+            table.setStatsTable(new DrillStatsTable(getFullSchemaName(), getStatsTableName(tableName)));
+          }
         }
+      } catch (final Exception e) {
+        logger.warn("Failed to find the stats table for table [{}] in schema [{}]", tableName, getFullSchemaName());
+      }
+    }
+
+    // Get stats table name for a given table name.
+    private String getStatsTableName(final String tableName) {
+      final Path tablePath = new Path(tableName);
+      try {
+        if (fs.isDirectory(tablePath)) {
+          return tableName + Path.SEPARATOR + "." + STATS.getEnding();
+        } else {
+          return tableName + "." + STATS.getEnding();
+        }
+      } catch (final Exception e) {
+        throw new DrillRuntimeException(
+            String.format("Failed to find the location of the stats for table [%s] in schema [%s]",
+                tableName, getFullSchemaName()));
       }
     }
 
