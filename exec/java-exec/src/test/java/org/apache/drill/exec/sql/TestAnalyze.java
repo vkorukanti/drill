@@ -18,48 +18,63 @@
 package org.apache.drill.exec.sql;
 
 import org.apache.drill.PlanTestBase;
-import org.apache.drill.exec.proto.UserBitShared.QueryType;
-import org.junit.BeforeClass;
+import org.apache.drill.exec.ExecConstants;
 import org.junit.Test;
 
 public class TestAnalyze extends PlanTestBase {
 
-  //@BeforeClass
-  public static void setup() throws Exception {
-
-    test("create table dfs_test.tmp.lineitem as select * from cp.`tpch/lineitem.parquet`");
-    test("create table dfs_test.tmp.orders as select * from cp.`tpch/orders.parquet`");
-    test("analyze table dfs_test.tmp.lineitem compute statistics for all columns");
-    test("analyze table dfs_test.tmp.orders compute statistics for all columns");
+  // Analyze for all columns
+  @Test
+  public void basic1() throws Exception {
+    try {
+      test("ALTER SESSION SET `planner.slice_target` = 1");
+      test("CREATE TABLE dfs_test.tmp.region_basic1 AS SELECT * from cp.`region.json`");
+      test("ANALYZE TABLE dfs_test.tmp.region_basic1 COMPUTE STATISTICS FOR ALL COLUMNS");
+      test("SELECT * FROM dfs_test.tmp.`region_basic1/.stats.drill`");
+      testBuilder()
+          .sqlQuery("SELECT count(*) as cnt FROM dfs_test.tmp.`region_basic1/.stats.drill`")
+          .unOrdered()
+          .baselineColumns("cnt")
+          .baselineValues(7L)
+          .go();
+    } finally {
+      test("ALTER SESSION SET `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
+    }
   }
 
+  // Analyze for for only part of the columns in table
   @Test
-  public void basic() throws Exception {
-    test("alter session set `planner.slice_target` = 1");
-    //test("create table dfs_test.tmp.region as select region_id, sales_city, count(*) as cnt from cp.`region.json` group by region_id, sales_city");
-    test("create table dfs_test.tmp.region as select * from cp.`region.json`");
-    test("analyze table dfs_test.tmp.region compute statistics for all columns");
-//    test("analyze table dfs_test.tmp.region compute statistics for all columns");
-//    test("analyze table dfs_test.tmp.region compute statistics for all columns");
-//    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.region"));
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.`region/.region.stats.drill`"));
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT count(distinct region_id) FROM cp.`region.json`"));
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT count(distinct sales_city) FROM cp.`region.json`"));
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT hll(sales_region) FROM dfs_test.tmp.`region`"));
+  public void basic2() throws Exception {
+    try {
+      test("ALTER SESSION SET `planner.slice_target` = 1");
+      test("CREATE TABLE dfs_test.tmp.region_basic2 AS SELECT * from cp.`region.json`");
+      test("ANALYZE TABLE dfs_test.tmp.region_basic2 COMPUTE STATISTICS FOR COLUMNS (region_id, sales_city)");
+      test("SELECT * FROM dfs_test.tmp.`region_basic2/.stats.drill`");
+      testBuilder()
+          .sqlQuery("SELECT count(*) as cnt FROM dfs_test.tmp.`region_basic2/.stats.drill`")
+          .unOrdered()
+          .baselineColumns("cnt")
+          .baselineValues(2L)
+          .go();
+    } finally {
+      test("ALTER SESSION SET `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
+    }
   }
 
   @Test
   public void join() throws Exception {
-    //printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.lineitem"));
-    //printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.`lineitem.stats.drill`"));
-    //printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.orders"));
-    //printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.`orders.stats.drill`"));
+    try {
+      test("ALTER SESSION SET `planner.slice_target` = 1");
+      test("CREATE TABLE dfs_test.tmp.lineitem AS SELECT * FROM cp.`tpch/lineitem.parquet`");
+      test("CREATE TABLE dfs_test.tmp.orders AS select * FROM cp.`tpch/orders.parquet`");
+      test("ANALYZE TABLE dfs_test.tmp.lineitem COMPUTE STATISTICS FOR ALL COLUMNS");
+      test("ANALYZE TABLE dfs_test.tmp.orders COMPUTE STATISTICS FOR ALL COLUMNS");
+      test("SELECT * FROM dfs_test.tmp.`lineitem/.stats.drill`");
+      test("SELECT * FROM dfs_test.tmp.`orders/.stats.drill`");
 
-    //printResult(testRunAndReturn(QueryType.SQL, "SELECT count(l_orderkey) from dfs_test.tmp.`lineitem`"));
-
-    //getPlanInString("EXPLAIN PLAN FOR SELECT count(l_orderkey) from dfs_test.tmp.`lineitem`", OPTIQ_FORMAT);
-    //getPlanInString("EXPLAIN PLAN FOR SELECT count(distinct l_orderkey) from dfs_test.tmp.`lineitem`", OPTIQ_FORMAT);
-    printResult(testRunAndReturn(QueryType.SQL,
-        "SELECT * FROM dfs_test.tmp.`lineitem` l join dfs_test.tmp.`orders` o on l.l_orderkey = o.o_orderkey"));
+      test("SELECT * FROM dfs_test.tmp.`lineitem` l JOIN dfs_test.tmp.`orders` o ON l.l_orderkey = o.o_orderkey");
+    } finally {
+      test("ALTER SESSION SET `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
+    }
   }
 }

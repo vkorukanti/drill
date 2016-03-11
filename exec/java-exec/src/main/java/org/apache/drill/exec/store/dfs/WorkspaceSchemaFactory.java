@@ -564,12 +564,12 @@ public class WorkspaceSchemaFactory {
 
     // Get stats table name for a given table name.
     private String getStatsTableName(final String tableName) {
-      final Path tablePath = new Path(tableName);
+      final Path tablePath = new Path(config.getLocation(), tableName);
       try {
         if (fs.isDirectory(tablePath)) {
-          return tableName + Path.SEPARATOR + "." + STATS.getEnding();
+          return tableName + Path.SEPARATOR + STATS.getEnding();
         } else {
-          return tableName + "." + STATS.getEnding();
+          return tableName + STATS.getEnding();
         }
       } catch (final Exception e) {
         throw new DrillRuntimeException(

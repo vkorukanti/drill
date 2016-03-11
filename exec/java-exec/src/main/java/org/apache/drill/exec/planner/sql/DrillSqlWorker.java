@@ -76,13 +76,8 @@ public class DrillSqlWorker {
       handler = new SetOptionHandler(context);
       break;
     case OTHER:
-      if(sqlNode instanceof SqlCreateTable) {
-        handler = ((DrillSqlCall)sqlNode).getSqlHandler(config, textPlan);
-        break;
-      }
-
       if (sqlNode instanceof DrillSqlCall) {
-        handler = ((DrillSqlCall)sqlNode).getSqlHandler(config);
+        handler = ((DrillSqlCall)sqlNode).getSqlHandler(config, textPlan);
         break;
       }
       // fallthrough
