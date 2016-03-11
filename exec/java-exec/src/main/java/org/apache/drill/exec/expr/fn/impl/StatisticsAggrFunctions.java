@@ -23,10 +23,6 @@
 package org.apache.drill.exec.expr.fn.impl;
 
 import io.netty.buffer.DrillBuf;
-import org.apache.drill.common.exceptions.DrillRuntimeException;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.DrillAggFunc;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
@@ -35,35 +31,11 @@ import org.apache.drill.exec.expr.annotations.FunctionTemplate.FunctionScope;
 import org.apache.drill.exec.expr.annotations.Output;
 import org.apache.drill.exec.expr.annotations.Param;
 import org.apache.drill.exec.expr.annotations.Workspace;
-import org.apache.drill.exec.expr.holders.BitHolder;
-import org.apache.drill.exec.expr.holders.NullableBitHolder;
 import org.apache.drill.exec.expr.holders.BigIntHolder;
 import org.apache.drill.exec.expr.holders.NullableBigIntHolder;
-import org.apache.drill.exec.expr.holders.IntHolder;
-import org.apache.drill.exec.expr.holders.NullableIntHolder;
 import org.apache.drill.exec.expr.holders.NullableVarBinaryHolder;
-import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.ObjectHolder;
-import org.apache.drill.exec.expr.holders.RepeatedVarBinaryHolder;
-import org.apache.drill.exec.expr.holders.RepeatedVarCharHolder;
-import org.apache.drill.exec.expr.holders.SmallIntHolder;
-import org.apache.drill.exec.expr.holders.NullableSmallIntHolder;
-import org.apache.drill.exec.expr.holders.TinyIntHolder;
-import org.apache.drill.exec.expr.holders.NullableTinyIntHolder;
-import org.apache.drill.exec.expr.holders.UInt1Holder;
-import org.apache.drill.exec.expr.holders.NullableUInt1Holder;
-import org.apache.drill.exec.expr.holders.UInt2Holder;
-import org.apache.drill.exec.expr.holders.NullableUInt2Holder;
-import org.apache.drill.exec.expr.holders.UInt4Holder;
-import org.apache.drill.exec.expr.holders.NullableUInt4Holder;
-import org.apache.drill.exec.expr.holders.UInt8Holder;
-import org.apache.drill.exec.expr.holders.NullableUInt8Holder;
-import org.apache.drill.exec.expr.holders.VarBinaryHolder;
-import org.apache.drill.exec.expr.holders.VarCharHolder;
-import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
-
-import com.clearspring.analytics.stream.cardinality.HyperLogLog;
 
 import javax.inject.Inject;
 
@@ -196,7 +168,7 @@ public class StatisticsAggrFunctions {
           out.buffer.setBytes(0, ba);
           out.isSet = 1;
         } catch (java.io.IOException e) {
-          throw new DrillRuntimeException("Failed to get HyperLogLog output", e);
+          throw new org.apache.drill.common.exceptions.DrillRuntimeException("Failed to get HyperLogLog output", e);
         }
       } else {
         out.isSet = 0;
@@ -314,7 +286,7 @@ public class StatisticsAggrFunctions {
         try {
           out.value = com.clearspring.analytics.stream.cardinality.HyperLogLog.Builder.build(din).cardinality();
         } catch (java.io.IOException e) {
-          e.printStackTrace();
+          throw new org.apache.drill.common.exceptions.DrillRuntimeException("Failure evaluation hll_decode", e);
         }
       }
     }

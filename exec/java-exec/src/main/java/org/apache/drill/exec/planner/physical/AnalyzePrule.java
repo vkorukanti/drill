@@ -18,11 +18,13 @@
 package org.apache.drill.exec.planner.physical;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
+import org.apache.drill.exec.planner.common.DrillStatsTable;
 import org.apache.drill.exec.planner.logical.DrillAnalyzeRel;
 import org.apache.drill.exec.planner.logical.DrillRel;
 import org.apache.drill.exec.planner.logical.RelOptHelper;
@@ -52,7 +54,10 @@ public class AnalyzePrule extends Prule {
     final RelNode convertedInput = convert(input, traits);
 
     final StatsAggPrel statsAggPrel = new StatsAggPrel(convertedInput, analyze.getCluster(), FUNCTIONS);
-    final SingleRel newAnalyze = new UnpivotMapsPrel(statsAggPrel, analyze.getCluster(), FUNCTIONS);
+
+    final List<String> mapFileds = Lists.newArrayList(FUNCTIONS);
+    mapFileds.add(DrillStatsTable.COL_COLUMN);
+    final SingleRel newAnalyze = new UnpivotMapsPrel(statsAggPrel, analyze.getCluster(), mapFileds);
 
     call.transformTo(newAnalyze);
   }

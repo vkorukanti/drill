@@ -37,6 +37,7 @@ import org.apache.drill.exec.planner.physical.Prel;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.planner.sql.parser.SqlAnalyzeTable;
 import org.apache.drill.exec.store.AbstractSchema;
+import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.foreman.SqlUnsupportedException;
 
@@ -46,8 +47,8 @@ import java.util.List;
 public class AnalyzeTableHandler extends DefaultSqlHandler {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AnalyzeTableHandler.class);
 
-  public AnalyzeTableHandler(SqlHandlerConfig config) {
-    super(config);
+  public AnalyzeTableHandler(SqlHandlerConfig config, Pointer<String> textPlan) {
+    super(config, textPlan);
   }
 
   @Override
@@ -79,7 +80,7 @@ public class AnalyzeTableHandler extends DefaultSqlHandler {
     final AbstractSchema drillSchema = SchemaUtilites.resolveToMutableDrillSchema(
         config.getConverter().getDefaultSchema(), sqlAnalyzeTable.getSchemaPath());
 
-    if (SqlHandlerUtil.getTableFromSchema(drillSchema, tableName) != null) {
+    if (SqlHandlerUtil.getTableFromSchema(drillSchema, tableName) == null) {
       throw UserException.validationError()
           .message("No table with given name [%s] exists in schema [%s]", tableName, drillSchema.getFullSchemaName())
           .build(logger);
@@ -88,6 +89,7 @@ public class AnalyzeTableHandler extends DefaultSqlHandler {
     // Convert the query to Drill Logical plan and insert a writer operator on top.
     DrillRel drel = convertToDrel(relScan, drillSchema, tableName);
     Prel prel = convertToPrel(drel);
+    logAndSetTextPlan("Drill Physical", prel, logger);
     PhysicalOperator pop = convertToPop(prel);
     PhysicalPlan plan = convertToPlan(pop);
     log("Drill Plan", plan, logger);

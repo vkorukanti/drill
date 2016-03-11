@@ -39,26 +39,59 @@ import org.apache.drill.exec.vector.complex.MapVector;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
+/**
+ * TODO: This needs cleanup, especially in state transitions.
+ *
+ * Unpivot maps. Assumptions are:
+ *  1) all child vectors in a map are of same type.
+ *  2) Each map contains the same number of fields and field names are also same (types could be different).
+ *
+ * Example input and output:
+ * Schema of input:
+ *    "schema" : BIGINT - Column number
+ *    "computed" : BIGINT - When it is computed
+ *    "columns" : MAP - Column names
+ *       "region_id" : VARCHAR
+ *       "sales_city" : VARCHAR
+ *       "cnt" : VARCHAR
+ *    "statscount" : MAP
+ *       "region_id" : BIGINT - statscount(region_id) - aggregation over all values of region_id in incoming batch
+ *       "sales_city" : BIGINT - statscount(sales_city)
+ *       "cnt" : BIGINT - statscount(cnt)
+ *    "nonnullstatcount" : MAP
+ *       "region_id" : BIGINT - nonnullstatcount(region_id)
+ *       "sales_city" : BIGINT - nonnullstatcount(sales_city)
+ *       "cnt" : BIGINT - nonnullstatcount(cnt)
+ *   .... another map for next stats function ....
+ *
+ * Schema of output:
+ *  "schema" : BIGINT - column number
+ *  "computed" : BIGINT - When it is computed
+ *  "column" : column name
+ *  "statscount" : BIGINT
+ *  "nonnullstatcount" : BIGINT
+ *  .... one column for each map type ...
+ */
 public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMaps> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpivotMapsRecordBatch.class);
 
-  private final List<String> dataFields;
+  private final List<String> mapFieldsNames;
 
-  int keyIndex = 0;
-  List<String> keyList = null;
-  Map<MaterializedField, Map<String, ValueVector>> dataSrcVecMap = null;
-  Map<MaterializedField, ValueVector> copySrcVecMap = null;
+  private int keyIndex = 0;
+  private List<String> keyList = null;
 
-  List<TransferPair> transferList;
+  private Map<MaterializedField, Map<String, ValueVector>> dataSrcVecMap = null;
 
-  private boolean hasRemainder = false;
-  private int remainderIndex = 0;
+  // Map of non-map fields to VV in the incoming schema
+  private Map<MaterializedField, ValueVector> copySrcVecMap = null;
+
+  private List<TransferPair> transferList;
   private int recordCount = 0;
 
   public UnpivotMapsRecordBatch(UnpivotMaps pop, RecordBatch incoming, FragmentContext context)
       throws OutOfMemoryException {
     super(pop, context, incoming);
-    this.dataFields = pop.getDataFields();
+    this.mapFieldsNames = pop.getMapFieldNames();
   }
 
   @Override
@@ -68,16 +101,11 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
 
   @Override
   public IterOutcome innerNext() {
-    if (hasRemainder) {
-      handleRemainder();
-      return IterOutcome.OK;
-
-    } else if (keyIndex != 0) {
+    if (keyIndex != 0) {
       doWork();
       return IterOutcome.OK;
     } else {
       return super.innerNext();
-
     }
   }
 
@@ -85,22 +113,12 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
     return this.container;
   }
 
-  private void handleRemainder() {
-    throw new UnsupportedOperationException("Remainder batch not supported!");
-
-    // TODO: handle remainder batch!!!
-  }
-
-  private int doTransfer() {
-    int n;
-
-    n = incoming.getRecordCount();
+  private void doTransfer() {
+    final int inputCount = incoming.getRecordCount();
 
     for (TransferPair tp : transferList) {
-      tp.splitAndTransfer(0, n);
+      tp.splitAndTransfer(0, inputCount);
     }
-
-    return n;
   }
 
   @Override
@@ -108,19 +126,10 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
     int outRecordCount = incoming.getRecordCount();
 
     prepareTransfers();
-
-    int inRecordCount = doTransfer();
-
-    if (inRecordCount < outRecordCount) {
-      hasRemainder = true;
-      remainderIndex = outRecordCount;
-      this.recordCount = remainderIndex;
-      return IterOutcome.OK;
-    }
-
+    doTransfer();
 
     keyIndex = (keyIndex + 1) % keyList.size();
-    this.recordCount = outRecordCount;
+    recordCount = outRecordCount;
 
     if (keyIndex == 0) {
       for (VectorWrapper w : incoming) {
@@ -130,24 +139,40 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
     return IterOutcome.OK;
   }
 
+  /**
+   * Identify the list of fields within a map which are unpivoted as columns in output
+   */
   private void buildKeyList() {
+    List<String> lastMapKeyList = null;
     for (VectorWrapper<?> vw : incoming) {
+      if (vw.getField().getType().getMinorType() != MinorType.MAP) {
+        continue;
+      }
+
       keyList = Lists.newArrayList();
 
       for (ValueVector vv : vw.getValueVector()) {
         keyList.add(vv.getField().getLastName());
       }
+
+      if (lastMapKeyList == null) {
+        lastMapKeyList = keyList;
+      } else {
+        if (keyList.size() != lastMapKeyList.size() || !lastMapKeyList.containsAll(keyList)) {
+          throw new UnsupportedOperationException("Maps have different fields");
+        }
+      }
     }
   }
 
-  private void dostuff() {
+  private void buildOutputContainer() {
     dataSrcVecMap = Maps.newHashMap();
     copySrcVecMap = Maps.newHashMap();
     for (VectorWrapper<?> vw : incoming) {
       MaterializedField ds = vw.getField();
       String col = vw.getField().getLastName();
 
-      if (!dataFields.contains(col)) {
+      if (!mapFieldsNames.contains(col)) {
         MajorType mt = vw.getValueVector().getField().getType();
         MaterializedField mf = MaterializedField.create(col, mt);
         container.add(TypeHelper.getNewVector(mf, oContext.getAllocator()));
@@ -155,10 +180,10 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
         continue;
       }
 
-      MapVector mv = (MapVector) vw.getValueVector();
-      assert mv.getPrimitiveVectors().size() > 0;
+      MapVector mapVector = (MapVector) vw.getValueVector();
+      assert mapVector.getPrimitiveVectors().size() > 0;
 
-      MajorType mt = mv.iterator().next().getField().getType();
+      MajorType mt = mapVector.iterator().next().getField().getType();
       MaterializedField mf = MaterializedField.create(col, mt);
       assert !dataSrcVecMap.containsKey(mf);
       container.add(TypeHelper.getNewVector(mf, oContext.getAllocator()));
@@ -166,20 +191,19 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
       Map<String, ValueVector> m = Maps.newHashMap();
       dataSrcVecMap.put(mf, m);
 
-      for (ValueVector vv : mv) {
-        String k = vv.getField().getLastName();
+      for (ValueVector vv : mapVector) {
+        String fieldName = vv.getField().getLastName();
 
-        if (!keyList.contains(k)) {
+        if (!keyList.contains(fieldName)) {
           throw new UnsupportedOperationException("Unpivot data vector " +
-              ds + " contains key " + k + " not contained in key source!");
+              ds + " contains key " + fieldName + " not contained in key source!");
         }
 
         if (vv.getField().getType().getMinorType() == MinorType.MAP) {
-          throw new UnsupportedOperationException("Unpivot of nested map is " +
-              "not supported!");
+          throw new UnsupportedOperationException("Unpivot of nested map is not supported!");
         }
 
-        m.put(vv.getField().getLastName(), vv);
+        m.put(fieldName, vv);
       }
     }
 
@@ -211,7 +235,7 @@ public class UnpivotMapsRecordBatch extends AbstractSingleRecordBatch<UnpivotMap
     container.clear();
 
     buildKeyList();
-    dostuff();
+    buildOutputContainer();
     return true;
   }
 }

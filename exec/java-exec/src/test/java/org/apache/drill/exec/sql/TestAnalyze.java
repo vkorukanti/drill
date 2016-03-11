@@ -24,24 +24,27 @@ import org.junit.Test;
 
 public class TestAnalyze extends PlanTestBase {
 
-  @BeforeClass
+  //@BeforeClass
   public static void setup() throws Exception {
 
     test("create table dfs_test.tmp.lineitem as select * from cp.`tpch/lineitem.parquet`");
     test("create table dfs_test.tmp.orders as select * from cp.`tpch/orders.parquet`");
-    test("analyze table dfs_test.tmp.lineitem compute statistics for all cols");
-    test("analyze table dfs_test.tmp.orders compute statistics for all cols");
+    test("analyze table dfs_test.tmp.lineitem compute statistics for all columns");
+    test("analyze table dfs_test.tmp.orders compute statistics for all columns");
   }
 
   @Test
   public void basic() throws Exception {
     test("alter session set `planner.slice_target` = 1");
-    test("create table dfs_test.tmp.region as select region_id, sales_city, count(*) as cnt from cp.`region.json` group by region_id, sales_city");
-    test("analyze table dfs_test.tmp.region compute statistics for all cols");
-    test("analyze table dfs_test.tmp.region compute statistics for all cols");
-    test("analyze table dfs_test.tmp.region compute statistics for all cols");
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.region"));
-    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.`region.stats.drill`"));
+    //test("create table dfs_test.tmp.region as select region_id, sales_city, count(*) as cnt from cp.`region.json` group by region_id, sales_city");
+    test("create table dfs_test.tmp.region as select * from cp.`region.json`");
+    test("analyze table dfs_test.tmp.region compute statistics for all columns");
+//    test("analyze table dfs_test.tmp.region compute statistics for all columns");
+//    test("analyze table dfs_test.tmp.region compute statistics for all columns");
+//    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.region"));
+    printResult(testRunAndReturn(QueryType.SQL, "SELECT * FROM dfs_test.tmp.`region/.region.stats.drill`"));
+    printResult(testRunAndReturn(QueryType.SQL, "SELECT count(distinct region_id) FROM cp.`region.json`"));
+    printResult(testRunAndReturn(QueryType.SQL, "SELECT count(distinct sales_city) FROM cp.`region.json`"));
     printResult(testRunAndReturn(QueryType.SQL, "SELECT hll(sales_region) FROM dfs_test.tmp.`region`"));
   }
 

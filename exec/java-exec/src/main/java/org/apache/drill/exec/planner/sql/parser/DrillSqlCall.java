@@ -38,7 +38,7 @@ public abstract class DrillSqlCall extends SqlCall {
   }
 
   public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config) {
-    return new DefaultSqlHandler(config);
+    return getSqlHandler(config, null);
   }
 
   public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config, Pointer<String> textPlan) {

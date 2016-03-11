@@ -46,6 +46,29 @@ import org.apache.drill.exec.vector.complex.MapVector;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * TODO: This needs cleanup. Currently the key values are constants and we compare the constants for
+ * every record. Seems unnecessary.
+ *
+ * Example input and output:
+ * Schema of incoming batch: region_id (VARCHAR), sales_city (VARCHAR), cnt (BIGINT)
+ * Schema of output:
+ *    "schema" : BIGINT - Column number
+ *    "computed" : BIGINT - When it is computed
+ *    "columns" : MAP - Column names
+ *       "region_id" : VARCHAR
+ *       "sales_city" : VARCHAR
+ *       "cnt" : VARCHAR
+ *    "statscount" : MAP
+ *       "region_id" : BIGINT - statscount(region_id) - aggregation over all values of region_id in incoming batch
+ *       "sales_city" : BIGINT - statscount(sales_city)
+ *       "cnt" : BIGINT - statscount(cnt)
+ *    "nonnullstatcount" : MAP
+ *       "region_id" : BIGINT - nonnullstatcount(region_id)
+ *       "sales_city" : BIGINT - nonnullstatcount(sales_city)
+ *       "cnt" : BIGINT - nonnullstatcount(cnt)
+ *   .... another map for next stats function ....
+ */
 public class StatisticsAggBatch extends StreamingAggBatch {
   private List<String> functions;
   private int schema = 0;
@@ -60,28 +83,16 @@ public class StatisticsAggBatch extends StreamingAggBatch {
       throws SchemaChangeException {
     ErrorCollector collector = new ErrorCollectorImpl();
 
-    final LogicalExpression mle = ExpressionTreeMaterializer.materialize(
-        expr,
-        incoming,
-        collector,
-        context.getFunctionRegistry()
-    );
+    LogicalExpression mle = ExpressionTreeMaterializer.materialize(expr, incoming, collector, context.getFunctionRegistry());
 
-    final MaterializedField outputField = MaterializedField.create(
-        name,
-        mle.getMajorType()
-    );
-    ValueVector vector = TypeHelper.getNewVector(
-        outputField,
-        oContext.getAllocator()
-    );
+    MaterializedField outputField = MaterializedField.create(name, mle.getMajorType());
+    ValueVector vector = TypeHelper.getNewVector(outputField, oContext.getAllocator());
 
     keyExprs.add(mle);
     keyOutputIds.add(container.add(vector));
 
     if (collector.hasErrors()) {
-      throw new SchemaChangeException(
-          "Failure while materializing expression. " + collector.toErrorString());
+      throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
     }
   }
 
@@ -89,12 +100,7 @@ public class StatisticsAggBatch extends StreamingAggBatch {
       throws SchemaChangeException {
     ErrorCollector collector = new ErrorCollectorImpl();
 
-    LogicalExpression mle = ExpressionTreeMaterializer.materialize(
-        expr,
-        incoming,
-        collector,
-        context.getFunctionRegistry()
-    );
+    LogicalExpression mle = ExpressionTreeMaterializer.materialize(expr, incoming, collector, context.getFunctionRegistry());
 
     Class<? extends ValueVector> vvc =
         TypeHelper.getValueVectorClass(mle.getMajorType().getMinorType(), mle.getMajorType().getMode());
@@ -105,16 +111,15 @@ public class StatisticsAggBatch extends StreamingAggBatch {
     assert pfid.getFieldIds().length == 1;
     TypedFieldId.Builder builder = TypedFieldId.newBuilder();
     builder.addId(pfid.getFieldIds()[0]);
-    TypedFieldId id = FieldIdUtil.getFieldIdIfMatches(parent, builder, true,
-        SchemaPath.getSimplePath(vv.getField().getPath()).getRootSegment()
-    );
+    TypedFieldId id =
+        FieldIdUtil.getFieldIdIfMatches(parent, builder, true,
+            SchemaPath.getSimplePath(vv.getField().getPath()).getRootSegment());
 
     keyExprs.add(mle);
     keyOutputIds.add(id);
 
     if (collector.hasErrors()) {
-      throw new SchemaChangeException(
-          "Failure while materializing expression. " + collector.toErrorString());
+      throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
     }
   }
 
@@ -122,18 +127,10 @@ public class StatisticsAggBatch extends StreamingAggBatch {
       throws SchemaChangeException {
     ErrorCollector collector = new ErrorCollectorImpl();
 
-    LogicalExpression mle = ExpressionTreeMaterializer.materialize(
-        expr,
-        incoming,
-        collector,
-        context.getFunctionRegistry()
-    );
+    LogicalExpression mle = ExpressionTreeMaterializer.materialize(expr, incoming, collector, context.getFunctionRegistry());
 
     Class<? extends ValueVector> vvc =
-        (Class<? extends ValueVector>) TypeHelper.getValueVectorClass(
-            mle.getMajorType().getMinorType(),
-            mle.getMajorType().getMode()
-        );
+        TypeHelper.getValueVectorClass(mle.getMajorType().getMinorType(), mle.getMajorType().getMode());
     ValueVector vv = parent.addOrGet(name, mle.getMajorType(), vvc);
 
     TypedFieldId pfid = container.getValueVectorId(SchemaPath.getSimplePath(parent.getField().getPath()));
@@ -141,14 +138,12 @@ public class StatisticsAggBatch extends StreamingAggBatch {
     TypedFieldId.Builder builder = TypedFieldId.newBuilder();
     builder.addId(pfid.getFieldIds()[0]);
     TypedFieldId id = FieldIdUtil.getFieldIdIfMatches(parent, builder, true,
-        SchemaPath.getSimplePath(vv.getField().getPath()).getRootSegment()
-    );
+        SchemaPath.getSimplePath(vv.getField().getPath()).getRootSegment());
 
     valueExprs.add(new ValueVectorWriteExpression(id, mle, true));
 
     if (collector.hasErrors()) {
-      throw new SchemaChangeException(
-          "Failure while materializing expression. " + collector.toErrorString());
+      throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
     }
   }
 

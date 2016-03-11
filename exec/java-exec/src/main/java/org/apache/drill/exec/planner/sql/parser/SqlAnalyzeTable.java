@@ -38,6 +38,7 @@ import org.apache.drill.exec.planner.sql.handlers.AnalyzeTableHandler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.drill.exec.planner.sql.handlers.SqlHandlerConfig;
+import org.apache.drill.exec.util.Pointer;
 
 /**
  * SQL tree for ANALYZE statement.
@@ -73,7 +74,12 @@ public class SqlAnalyzeTable extends DrillSqlCall {
 
   @Override
   public List<SqlNode> getOperandList() {
-    return ImmutableList.of(tblName, estimate, fieldList, percent);
+    final List<SqlNode> operands = Lists.newArrayListWithCapacity(4);
+    operands.add(tblName);
+    operands.add(estimate);
+    operands.add(fieldList);
+    operands.add(percent);
+    return operands;
   }
 
   @Override
@@ -104,8 +110,8 @@ public class SqlAnalyzeTable extends DrillSqlCall {
   }
 
   @Override
-  public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config) {
-    return new AnalyzeTableHandler(config);
+  public AbstractSqlHandler getSqlHandler(SqlHandlerConfig config, Pointer<String> textPlan) {
+    return new AnalyzeTableHandler(config, textPlan);
   }
 
   public List<String> getSchemaPath() {
