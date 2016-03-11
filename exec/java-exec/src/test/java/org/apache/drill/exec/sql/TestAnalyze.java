@@ -31,31 +31,56 @@ public class TestAnalyze extends PlanTestBase {
       test("CREATE TABLE dfs_test.tmp.region_basic1 AS SELECT * from cp.`region.json`");
       test("ANALYZE TABLE dfs_test.tmp.region_basic1 COMPUTE STATISTICS FOR ALL COLUMNS");
       test("SELECT * FROM dfs_test.tmp.`region_basic1/.stats.drill`");
+
       testBuilder()
-          .sqlQuery("SELECT count(*) as cnt FROM dfs_test.tmp.`region_basic1/.stats.drill`")
+          .sqlQuery("SELECT `column`, statcount, nonnullstatcount, ndv FROM dfs_test.tmp.`region_basic1/.stats.drill`")
           .unOrdered()
-          .baselineColumns("cnt")
-          .baselineValues(7L)
+          .baselineColumns("column", "statcount", "nonnullstatcount", "ndv")
+          .baselineValues("region_id", 110L, 110L, 107L)
+          .baselineValues("sales_city", 110L, 110L, 111L)
+          .baselineValues("sales_state_province", 110L, 110L, 13L)
+          .baselineValues("sales_district", 110L, 110L, 22L)
+          .baselineValues("sales_region", 110L, 110L, 8L)
+          .baselineValues("sales_country", 110L, 110L, 4L)
+          .baselineValues("sales_district_id", 110L, 110L, 23L)
           .go();
+
+      // we can't compare the ndv for correctness as it is an estimate and not accurate
+      testBuilder()
+          .sqlQuery("SELECT statcount FROM dfs_test.tmp.`region_basic1/.stats.drill` WHERE `column` = 'region_id'")
+          .unOrdered()
+          .sqlBaselineQuery("SELECT count(region_id) AS statcount FROM dfs_test.tmp.region_basic1")
+          .go();
+
     } finally {
       test("ALTER SESSION SET `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
     }
   }
 
-  // Analyze for for only part of the columns in table
+  // Analyze for only a subset of the columns in table
   @Test
   public void basic2() throws Exception {
     try {
       test("ALTER SESSION SET `planner.slice_target` = 1");
-      test("CREATE TABLE dfs_test.tmp.region_basic2 AS SELECT * from cp.`region.json`");
-      test("ANALYZE TABLE dfs_test.tmp.region_basic2 COMPUTE STATISTICS FOR COLUMNS (region_id, sales_city)");
-      test("SELECT * FROM dfs_test.tmp.`region_basic2/.stats.drill`");
+      test("CREATE TABLE dfs_test.tmp.employee_basic2 AS SELECT * from cp.`employee.json`");
+      test("ANALYZE TABLE dfs_test.tmp.employee_basic2 COMPUTE STATISTICS FOR COLUMNS (employee_id, birth_date)");
+      test("SELECT * FROM dfs_test.tmp.`employee_basic2/.stats.drill`");
+
       testBuilder()
-          .sqlQuery("SELECT count(*) as cnt FROM dfs_test.tmp.`region_basic2/.stats.drill`")
+          .sqlQuery("SELECT `column`, statcount, nonnullstatcount, ndv FROM dfs_test.tmp.`employee_basic2/.stats.drill`")
           .unOrdered()
-          .baselineColumns("cnt")
-          .baselineValues(2L)
+          .baselineColumns("column", "statcount", "nonnullstatcount", "ndv")
+          .baselineValues("employee_id", 1155L, 1155L, 1144L)
+          .baselineValues("birth_date", 1155L, 1155L, 53L)
           .go();
+
+      // we can't compare the ndv for correctness as it is an estimate and not accurate
+      testBuilder()
+          .sqlQuery("SELECT statcount FROM dfs_test.tmp.`employee_basic2/.stats.drill` WHERE `column` = 'birth_date'")
+          .unOrdered()
+          .sqlBaselineQuery("SELECT count(birth_date) AS statcount FROM dfs_test.tmp.employee_basic2")
+          .go();
+
     } finally {
       test("ALTER SESSION SET `planner.slice_target` = " + ExecConstants.SLICE_TARGET_DEFAULT);
     }
