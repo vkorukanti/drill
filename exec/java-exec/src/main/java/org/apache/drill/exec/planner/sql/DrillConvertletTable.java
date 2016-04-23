@@ -35,6 +35,8 @@ public class DrillConvertletTable implements SqlRexConvertletTable{
 
   private static final Map<SqlOperator, SqlRexConvertlet> map =
       ImmutableMap.<SqlOperator, SqlRexConvertlet>builder()
+          .put(SqlStdOperatorTable.TIMESTAMP_ADD, DrillTimestampAddConvertlet.INSTANCE)
+          .put(SqlStdOperatorTable.TIMESTAMP_DIFF, DrillTimestampDiffConvertlet.INSTANCE)
           .put(SqlStdOperatorTable.EXTRACT, DrillExtractConvertlet.INSTANCE)
           .put(SqlStdOperatorTable.IS_DISTINCT_FROM, DrillDistinctFromConvertlet.INSTANCE)
           .put(SqlStdOperatorTable.IS_NOT_DISTINCT_FROM, DrillDistinctFromConvertlet.INSTANCE)
