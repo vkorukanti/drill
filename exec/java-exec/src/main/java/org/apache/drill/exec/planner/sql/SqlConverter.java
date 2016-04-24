@@ -378,16 +378,16 @@ public class SqlConverter {
       super(typeFactory);
     }
 
-    /**
-     * Since Drill has different mechanism and rules for implicit casting,
-     * ensureType() is overridden to avoid conflicting cast functions being added to the expressions.
-     */
-    @Override
-    public RexNode ensureType(
-        RelDataType type,
-        RexNode node,
-        boolean matchNullability) {
-      return node;
-    }
+//    /**
+//     * Since Drill has different mechanism and rules for implicit casting,
+//     * ensureType() is overridden to avoid conflicting cast functions being added to the expressions.
+//     */
+//    @Override
+//    public RexNode ensureType(
+//        RelDataType type,
+//        RexNode node,
+//        boolean matchNullability) {
+//      return node;
+//    }
   }
 }
