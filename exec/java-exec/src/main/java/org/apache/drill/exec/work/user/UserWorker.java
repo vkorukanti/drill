@@ -31,6 +31,7 @@ import org.apache.drill.exec.rpc.user.UserSession.QueryCountIncrementer;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.work.WorkManager.WorkerBee;
 import org.apache.drill.exec.work.foreman.Foreman;
+import org.apache.drill.exec.work.metadata.MetadataProvider;
 
 public class UserWorker{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UserWorker.class);
@@ -42,17 +43,18 @@ public class UserWorker{
       session.incrementQueryCount(this);
     }
   };
+  private final MetadataProvider metadataProvider;
 
   public UserWorker(WorkerBee bee) {
-    super();
     this.bee = bee;
+    this.metadataProvider = new MetadataProvider(bee);
   }
 
   /**
    * Helper method to generate QueryId
    * @return generated QueryId
    */
-  private QueryId queryIdGenerator() {
+  public static QueryId generateQueryId() {
     ThreadLocalRandom r = ThreadLocalRandom.current();
 
     // create a new queryid where the first four bytes are a growing time (each new value comes earlier in sequence).  Last 12 bytes are random.
@@ -64,7 +66,7 @@ public class UserWorker{
   }
 
   public QueryId submitWork(UserClientConnection connection, RunQuery query) {
-    final QueryId id = queryIdGenerator();
+    final QueryId id = generateQueryId();
     incrementer.increment(connection.getSession());
     Foreman foreman = new Foreman(bee, bee.getContext(), connection, id, query);
     bee.addNewForeman(foreman);
@@ -93,8 +95,13 @@ public class UserWorker{
 
   public QueryPlanFragments getQueryPlan(UserClientConnection connection,
       GetQueryPlanFragments req) {
-    final QueryId queryId = queryIdGenerator();
+    final QueryId queryId = generateQueryId();
     final QueryPlanFragments qPlanFragments = new PlanSplitter().planFragments(bee.getContext(), queryId, req, connection);
     return qPlanFragments;
+  }
+
+
+  public MetadataProvider getMetadataProvider() {
+    return metadataProvider;
   }
 }

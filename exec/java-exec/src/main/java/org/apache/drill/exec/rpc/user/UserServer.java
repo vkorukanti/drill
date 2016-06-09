@@ -38,7 +38,11 @@ import org.apache.drill.exec.proto.GeneralRPCProtos.RpcMode;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult;
 import org.apache.drill.exec.proto.UserProtos.BitToUserHandshake;
+import org.apache.drill.exec.proto.UserProtos.GetCatalogsReq;
+import org.apache.drill.exec.proto.UserProtos.GetColumnsReq;
 import org.apache.drill.exec.proto.UserProtos.GetQueryPlanFragments;
+import org.apache.drill.exec.proto.UserProtos.GetSchemasReq;
+import org.apache.drill.exec.proto.UserProtos.GetTablesReq;
 import org.apache.drill.exec.proto.UserProtos.HandshakeStatus;
 import org.apache.drill.exec.proto.UserProtos.Property;
 import org.apache.drill.exec.proto.UserProtos.RpcType;
@@ -138,6 +142,34 @@ public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnec
         return new Response(RpcType.QUERY_PLAN_FRAGMENTS, worker.getQueryPlan(connection, req));
       } catch(final InvalidProtocolBufferException e) {
         throw new RpcException("Failure while decoding GetQueryPlanFragments body.", e);
+      }
+    case RpcType.GET_CATALOGS_VALUE:
+      try {
+        final GetCatalogsReq req = GetCatalogsReq.PARSER.parseFrom(new ByteBufInputStream(pBody));
+        return new Response(RpcType.CATALOGS, worker.getMetadataProvider().getCatalogs(connection, req));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new RpcException("Failure while decoding GetCatalogsReq body.", e);
+      }
+    case RpcType.GET_SCHEMAS_VALUE:
+      try {
+        final GetSchemasReq req = GetSchemasReq.PARSER.parseFrom(new ByteBufInputStream(pBody));
+        return new Response(RpcType.SCHEMAS, worker.getMetadataProvider().getSchemas(connection, req));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new RpcException("Failure while decoding GetSchemasReq body.", e);
+      }
+    case RpcType.GET_TABLES_VALUE:
+      try {
+        final GetTablesReq req = GetTablesReq.PARSER.parseFrom(new ByteBufInputStream(pBody));
+        return new Response(RpcType.TABLES, worker.getMetadataProvider().getTables(connection, req));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new RpcException("Failure while decoding GetTablesReq body.", e);
+      }
+    case RpcType.GET_COLUMNS_VALUE:
+      try {
+        final GetColumnsReq req = GetColumnsReq.PARSER.parseFrom(new ByteBufInputStream(pBody));
+        return new Response(RpcType.COLUMNS, worker.getMetadataProvider().getColumns(connection, req));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new RpcException("Failure while decoding GetColumnsReq body.", e);
       }
     default:
       throw new UnsupportedOperationException(String.format("UserServer received rpc of unknown type.  Type was %d.", rpcType));
