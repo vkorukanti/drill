@@ -53,6 +53,7 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
     private QueryType type;
     private String plan;
     private List<PlanFragment> fragments;
+    private PreparedStatement preparedStatement;
 
     public RunQuery()
     {
@@ -110,6 +111,19 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
     public RunQuery setFragmentsList(List<PlanFragment> fragments)
     {
         this.fragments = fragments;
+        return this;
+    }
+
+    // preparedStatement
+
+    public PreparedStatement getPreparedStatement()
+    {
+        return preparedStatement;
+    }
+
+    public RunQuery setPreparedStatement(PreparedStatement preparedStatement)
+    {
+        this.preparedStatement = preparedStatement;
         return this;
     }
 
@@ -182,6 +196,10 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
                     message.fragments.add(input.mergeObject(null, PlanFragment.getSchema()));
                     break;
 
+                case 5:
+                    message.preparedStatement = input.mergeObject(message.preparedStatement, PreparedStatement.getSchema());
+                    break;
+
                 default:
                     input.handleUnknownField(number, this);
             }   
@@ -209,6 +227,10 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
             }
         }
 
+
+        if(message.preparedStatement != null)
+             output.writeObject(5, message.preparedStatement, PreparedStatement.getSchema(), false);
+
     }
 
     public String getFieldName(int number)
@@ -219,6 +241,7 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
             case 2: return "type";
             case 3: return "plan";
             case 4: return "fragments";
+            case 5: return "preparedStatement";
             default: return null;
         }
     }
@@ -236,6 +259,7 @@ public final class RunQuery implements Externalizable, Message<RunQuery>, Schema
         __fieldMap.put("type", 2);
         __fieldMap.put("plan", 3);
         __fieldMap.put("fragments", 4);
+        __fieldMap.put("preparedStatement", 5);
     }
     
 }

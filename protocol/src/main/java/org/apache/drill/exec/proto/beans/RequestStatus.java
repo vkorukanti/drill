@@ -20,17 +20,14 @@
 
 package org.apache.drill.exec.proto.beans;
 
-public enum QueryType implements com.dyuproject.protostuff.EnumLite<QueryType>
+public enum RequestStatus implements com.dyuproject.protostuff.EnumLite<RequestStatus>
 {
-    SQL(1),
-    LOGICAL(2),
-    PHYSICAL(3),
-    EXECUTION(4),
-    PREPARED_STATEMENT(5);
+    OK(1),
+    FAILED(2);
     
     public final int number;
     
-    private QueryType (int number)
+    private RequestStatus (int number)
     {
         this.number = number;
     }
@@ -40,15 +37,12 @@ public enum QueryType implements com.dyuproject.protostuff.EnumLite<QueryType>
         return number;
     }
     
-    public static QueryType valueOf(int number)
+    public static RequestStatus valueOf(int number)
     {
         switch(number) 
         {
-            case 1: return SQL;
-            case 2: return LOGICAL;
-            case 3: return PHYSICAL;
-            case 4: return EXECUTION;
-            case 5: return PREPARED_STATEMENT;
+            case 1: return OK;
+            case 2: return FAILED;
             default: return null;
         }
     }
