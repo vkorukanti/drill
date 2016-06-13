@@ -32,6 +32,7 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.work.WorkManager.WorkerBee;
 import org.apache.drill.exec.work.foreman.Foreman;
 import org.apache.drill.exec.work.metadata.MetadataProvider;
+import org.apache.drill.exec.work.prepare.PreparedStatementProvider;
 
 public class UserWorker{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UserWorker.class);
@@ -44,10 +45,12 @@ public class UserWorker{
     }
   };
   private final MetadataProvider metadataProvider;
+  private final PreparedStatementProvider preparedStatementProvider;
 
   public UserWorker(WorkerBee bee) {
     this.bee = bee;
-    this.metadataProvider = new MetadataProvider(bee);
+    metadataProvider = new MetadataProvider(bee);
+    preparedStatementProvider = new PreparedStatementProvider(this);
   }
 
   /**
@@ -100,6 +103,9 @@ public class UserWorker{
     return qPlanFragments;
   }
 
+  public PreparedStatementProvider getPreparedStatementProvider() {
+    return preparedStatementProvider;
+  }
 
   public MetadataProvider getMetadataProvider() {
     return metadataProvider;

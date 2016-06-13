@@ -19,6 +19,7 @@ package org.apache.drill.exec.rpc.user;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -38,6 +39,7 @@ import org.apache.drill.exec.proto.GeneralRPCProtos.RpcMode;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult;
 import org.apache.drill.exec.proto.UserProtos.BitToUserHandshake;
+import org.apache.drill.exec.proto.UserProtos.CreatePreparedStatementReq;
 import org.apache.drill.exec.proto.UserProtos.GetCatalogsReq;
 import org.apache.drill.exec.proto.UserProtos.GetColumnsReq;
 import org.apache.drill.exec.proto.UserProtos.GetQueryPlanFragments;
@@ -57,6 +59,7 @@ import org.apache.drill.exec.rpc.RemoteConnection;
 import org.apache.drill.exec.rpc.Response;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
+import org.apache.drill.exec.rpc.user.UserServer.UserClientConnectionImpl;
 import org.apache.drill.exec.rpc.user.security.UserAuthenticationException;
 import org.apache.drill.exec.rpc.user.security.UserAuthenticator;
 import org.apache.drill.exec.rpc.user.security.UserAuthenticatorFactory;
@@ -65,7 +68,7 @@ import org.apache.drill.exec.work.user.UserWorker;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
 
-public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnection> {
+public class UserServer extends BasicServer<RpcType, UserClientConnectionImpl> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UserServer.class);
 
   final UserWorker worker;
@@ -105,7 +108,7 @@ public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnec
   }
 
   @Override
-  protected Response handle(UserClientConnection connection, int rpcType, ByteBuf pBody, ByteBuf dBody)
+  protected Response handle(UserClientConnectionImpl connection, int rpcType, ByteBuf pBody, ByteBuf dBody)
       throws RpcException {
     switch (rpcType) {
 
@@ -171,25 +174,79 @@ public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnec
       } catch (final InvalidProtocolBufferException e) {
         throw new RpcException("Failure while decoding GetColumnsReq body.", e);
       }
+    case RpcType.CREATE_PREPARED_STATEMENT_VALUE:
+      try {
+        final CreatePreparedStatementReq req = CreatePreparedStatementReq.PARSER.parseFrom(new ByteBufInputStream(pBody));
+        return new Response(RpcType.PREPARED_STATEMENT,
+            worker.getPreparedStatementProvider().createPreparedStatement(connection, req));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new RpcException("Failure while decoding CreatePreparedStatementReq body.", e);
+      }
     default:
       throw new UnsupportedOperationException(String.format("UserServer received rpc of unknown type.  Type was %d.", rpcType));
     }
 
   }
 
-  public class UserClientConnection extends RemoteConnection {
+  /**
+   * Interface for getting user session properties and interacting with user connection. Separating this interface from
+   * {@link RemoteConnection} connection makes it easy to have filters which need to tap the messages and data
+   * going to the actual client.
+   */
+  public interface UserClientConnection {
+
+    /**
+     * Disable read timeout on the connection channel.
+     */
+    void disableReadTimeout();
+
+    /**
+     * Get the user info from handshake response and set it in connection
+     * @param inbound
+     * @throws IOException
+     */
+    void setUser(UserToBitHandshake inbound) throws IOException;
+
+    /**
+     * @return User session object.
+     */
+    UserSession getSession();
+
+    /**
+     * Send query result outcome to client.
+     * @param listener
+     * @param result
+     */
+    void sendResult(RpcOutcomeListener<Ack> listener, QueryResult result);
+
+    /**
+     * Send query data to client.
+     * @param listener
+     * @param result
+     */
+    void sendData(RpcOutcomeListener<Ack> listener, QueryWritableBatch result);
+
+    /**
+     * @return Get the underlying {@link Channel}
+     */
+    Channel getConnectionChannel();
+  }
+
+  public class UserClientConnectionImpl extends RemoteConnection implements UserClientConnection {
 
     private UserSession session;
 
-    public UserClientConnection(SocketChannel channel) {
+    public UserClientConnectionImpl(SocketChannel channel) {
       super(channel, "user client");
     }
 
-    void disableReadTimeout() {
+    @Override
+    public void disableReadTimeout() {
       getChannel().pipeline().remove(BasicServer.TIMEOUT_HANDLER);
     }
 
-    void setUser(UserToBitHandshake inbound) throws IOException {
+    @Override
+    public void setUser(UserToBitHandshake inbound) throws IOException {
       session = UserSession.Builder.newBuilder()
           .withCredentials(inbound.getCredentials())
           .withOptionManager(worker.getSystemOptions())
@@ -202,38 +259,42 @@ public class UserServer extends BasicServer<RpcType, UserServer.UserClientConnec
       }
     }
 
+    @Override
     public UserSession getSession(){
       return session;
     }
 
-    public void sendResult(RpcOutcomeListener<Ack> listener, QueryResult result, boolean allowInEventThread){
+    @Override
+    public void sendResult(RpcOutcomeListener<Ack> listener, QueryResult result){
       logger.trace("Sending result to client with {}", result);
-      send(listener, this, RpcType.QUERY_RESULT, result, Ack.class, allowInEventThread);
+      send(listener, this, RpcType.QUERY_RESULT, result, Ack.class, true);
     }
 
+    @Override
     public void sendData(RpcOutcomeListener<Ack> listener, QueryWritableBatch result){
-      sendData(listener, result, false);
+      logger.trace("Sending data to client with {}", result);
+      send(listener, this, RpcType.QUERY_DATA, result.getHeader(), Ack.class, false, result.getBuffers());
     }
 
-    public void sendData(RpcOutcomeListener<Ack> listener, QueryWritableBatch result, boolean allowInEventThread){
-      logger.trace("Sending data to client with {}", result);
-      send(listener, this, RpcType.QUERY_DATA, result.getHeader(), Ack.class, allowInEventThread, result.getBuffers());
-    }
     @Override
     public BufferAllocator getAllocator() {
       return alloc;
     }
 
+    @Override
+    public Channel getConnectionChannel() {
+      return getChannel();
+    }
   }
 
   @Override
-  public UserClientConnection initRemoteConnection(SocketChannel channel) {
+  public UserClientConnectionImpl initRemoteConnection(SocketChannel channel) {
     super.initRemoteConnection(channel);
-    return new UserClientConnection(channel);
+    return new UserClientConnectionImpl(channel);
   }
 
   @Override
-  protected ServerHandshakeHandler<UserToBitHandshake> getHandshakeHandler(final UserClientConnection connection) {
+  protected ServerHandshakeHandler<UserToBitHandshake> getHandshakeHandler(final UserClientConnectionImpl connection) {
 
     return new ServerHandshakeHandler<UserToBitHandshake>(RpcType.HANDSHAKE, UserToBitHandshake.PARSER){
 

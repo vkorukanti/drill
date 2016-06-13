@@ -53,6 +53,8 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.UserProtos;
+import org.apache.drill.exec.proto.UserProtos.CreatePreparedStatementReq;
+import org.apache.drill.exec.proto.UserProtos.CreatePreparedStatementResp;
 import org.apache.drill.exec.proto.UserProtos.GetCatalogsResp;
 import org.apache.drill.exec.proto.UserProtos.GetCatalogsReq;
 import org.apache.drill.exec.proto.UserProtos.GetColumnsReq;
@@ -63,9 +65,11 @@ import org.apache.drill.exec.proto.UserProtos.GetSchemasResp;
 import org.apache.drill.exec.proto.UserProtos.GetTablesReq;
 import org.apache.drill.exec.proto.UserProtos.GetTablesResp;
 import org.apache.drill.exec.proto.UserProtos.LikeFilter;
+import org.apache.drill.exec.proto.UserProtos.PreparedStatement;
 import org.apache.drill.exec.proto.UserProtos.Property;
 import org.apache.drill.exec.proto.UserProtos.QueryPlanFragments;
 import org.apache.drill.exec.proto.UserProtos.RpcType;
+import org.apache.drill.exec.proto.UserProtos.RunQuery;
 import org.apache.drill.exec.proto.UserProtos.UserProperties;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.rpc.BasicClientWithConnection.ServerConnection;
@@ -325,9 +329,13 @@ public class DrillClient implements Closeable, ConnectionThrottle {
   }
 
   /**
-   * Submits a Logical plan for direct execution (bypasses parsing)
+   * Submits a string based query plan for execution and return the result batches. Supported query types are:
+   *  - {@link QueryType#LOGICAL}
+   *  - {@link QueryType#PHYSICAL}
+   *  - {@link QueryType#SQL}
    *
-   * @param plan the plan to execute
+   * @param type Query type
+   * @param plan Query to execute
    * @return a handle for the query result
    * @throws RpcException
    */
@@ -352,7 +360,8 @@ public class DrillClient implements Closeable, ConnectionThrottle {
   }
 
   /**
-   * Run query based on list of fragments that were supposedly produced during query planning phase
+   * Run query based on list of fragments that were supposedly produced during query planning phase. Supported
+   * query type is {@link QueryType#EXECUTION}
    * @param type
    * @param planFragments
    * @param resultsListener
@@ -479,6 +488,56 @@ public class DrillClient implements Closeable, ConnectionThrottle {
     }
 
     return client.send(RpcType.GET_COLUMNS, reqBuilder.build(), GetColumnsResp.class);
+  }
+
+  /**
+   * Create a prepared statement for given <code>query</code>.
+   *
+   * @param query
+   * @return
+   */
+  public DrillRpcFuture<CreatePreparedStatementResp> createPreparedStatement(final String query) {
+    final CreatePreparedStatementReq req = CreatePreparedStatementReq.newBuilder()
+        .setSqlQuery(query)
+        .build();
+
+    return client.send(RpcType.CREATE_PREPARED_STATEMENT, req, CreatePreparedStatementResp.class);
+  }
+
+  /**
+   * Execute the prepared statement.
+   *
+   * @param preparedStatement Prepared statement object created using {@link #createPreparedStatement(String)}.
+   * @param resultsListener {@link UserResultsListener} instance for listening for results.
+   */
+  public void executePreparedStatement(final PreparedStatement preparedStatement, UserResultsListener resultsListener) {
+    final RunQuery runQuery = newBuilder()
+        .setResultsMode(STREAM_FULL)
+        .setType(QueryType.PREPARED_STATEMENT)
+        .setPreparedStatement(preparedStatement)
+        .build();
+    client.submitQuery(resultsListener, runQuery);
+  }
+
+  /**
+   * Execute the given prepared statement and return the results.
+   *
+   * @param preparedStatement Prepared statement object created using {@link #createPreparedStatement(String)}.
+   * @return List of {@link QueryDataBatch}
+   * @throws RpcException
+   */
+  public List<QueryDataBatch> executePreparedStatement(final PreparedStatement preparedStatement) throws RpcException {
+    final RunQuery runQuery = newBuilder()
+        .setResultsMode(STREAM_FULL)
+        .setType(QueryType.PREPARED_STATEMENT)
+        .setPreparedStatement(preparedStatement)
+        .build();
+
+    final ListHoldingResultsListener resultsListener = new ListHoldingResultsListener(runQuery);
+
+    client.submitQuery(resultsListener, runQuery);
+
+    return resultsListener.getResults();
   }
 
   /**
