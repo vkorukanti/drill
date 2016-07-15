@@ -387,6 +387,11 @@ RecordIterator* DrillClient::submitQuery(Drill::QueryType t, const std::string& 
     return pIter;
 }
 
+void DrillClient::cancelQuery(QueryHandle_t handle) {
+    assert(handle!=NULL);
+    ((DrillClientQueryResult*)handle)->cancel();
+}
+
 void* DrillClient::getApplicationContext(QueryHandle_t handle){
     assert(handle!=NULL);
     return ((DrillClientQueryResult*)handle)->getListenerContext();

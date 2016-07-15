@@ -330,6 +330,11 @@ class DECLSPEC_DRILL_CLIENT DrillClient{
         RecordIterator* submitQuery(Drill::QueryType t, const std::string& plan, DrillClientError* err);
 
         /*
+         * Cancel the query with given handle.
+         */
+        void cancelQuery(QueryHandle_t handle);
+
+        /*
          * The client application should call this function to wait for results if it has registered a
          * listener.
          */

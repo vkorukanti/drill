@@ -521,6 +521,10 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(::exec::shared::QueryType t
     return pQuery;
 }
 
+void DrillClientImpl::CancelQuery(exec::shared::QueryId* pQueryId) {
+    sendCancel(pQueryId);
+}
+
 void DrillClientImpl::getNextResult(){
 
     // This call is always made from within a function where the mutex has already been acquired
@@ -1327,8 +1331,30 @@ void DrillClientQueryResult::waitForData() {
     }
 }
 
+void DrillClientQueryResult::setQueryId(exec::shared::QueryId* q){
+    boost::lock_guard<boost::mutex> queryIdLock(this->m_queryIdMutex);
+    this->m_pQueryId=q;
+
+    // If the query status is set to cancelled, send cancellation message to Drillbit 
+    if (q != NULL && this->isCancelled()) {
+        DRILL_MT_LOG(DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::setQueryId: Query is cancelled. Send cancel request to Drillbit.\n";)
+        this->m_pClient->CancelQuery(this->m_pQueryId);
+    }
+}
+
 void DrillClientQueryResult::cancel() {
+    boost::lock_guard<boost::mutex> cancelLock(this->m_cancelStatusMutex);
     this->m_bCancel=true;
+
+    DRILL_MT_LOG(DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::cancel: Cancel requested.\n";)
+
+    // If the query id is received, send cancellation message to Drillbit
+    if (this->getQueryId() != NULL) {
+        DRILL_MT_LOG(DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::cancel: Sending cancel request to Drillbit\n";)
+        this->m_pClient->CancelQuery(this->m_pQueryId);
+    } else {
+        DRILL_MT_LOG(DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::cancel: Cancellation is not sent as the QueryId has not arrived.\n";)
+    }
 }
 
 void DrillClientQueryResult::signalError(DrillClientError* pErr){
@@ -1382,15 +1408,18 @@ void DrillClientQueryResult::clearAndDestroy(){
         }
         m_columnDefs->clear();
     }
-    if(this->m_pQueryId!=NULL){
-        DRILL_MT_LOG(DRILL_LOG(LOG_TRACE) << "Clearing state for Query Id - " << debugPrintQid(*this->m_pQueryId) << std::endl;)
+
+    exec::shared::QueryId* queryId = this->getQueryId();
+    if(queryId != NULL){
+        DRILL_MT_LOG(DRILL_LOG(LOG_TRACE) << "Clearing state for Query Id - " << debugPrintQid(*queryId) << std::endl;)
     }
     //Tell the parent to remove this from its lists
     m_pClient->clearMapEntries(this);
 
     //clear query id map entries.
-    if(this->m_pQueryId!=NULL){
-        delete this->m_pQueryId; this->m_pQueryId=NULL;
+    if(queryId!=NULL){
+        delete queryId;
+        setQueryId(NULL);
     }
     if(!m_recordBatches.empty()){
         // When multiple qwueries execute in parallel we sometimes get an empty record batch back from the server _after_

@@ -415,7 +415,14 @@ int main(int argc, char* argv[]) {
                     client.submitQuery(type, *queryInpIter, QueryResultsListener, NULL, qryHandle);
                     client.registerSchemaChangeListener(qryHandle, SchemaListener);
                     
-                    client.waitForResults();
+                    if(bTestCancel) {
+                        // Send cancellation request after 5seconds
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(5000));
+                        std::cout<< "\n Cancelling query: " << *queryInpIter << "\n" << std::endl;
+                        client.cancelQuery(*qryHandle);
+                    } else {
+                        client.waitForResults();
+                    }
 
                     client.freeQueryResources(qryHandle);
                     delete qryHandle;
@@ -439,6 +446,8 @@ int main(int argc, char* argv[]) {
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;
     }
+
+    system("pause");
 
     return 0;
 }

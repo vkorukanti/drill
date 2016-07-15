@@ -156,14 +156,20 @@ class DrillClientQueryResult{
     }
 
     void cancel();
-    bool isCancelled(){return this->m_bCancel;};
+    bool isCancelled() {
+        boost::lock_guard<boost::mutex> cancelLock(this->m_cancelStatusMutex);
+        return this->m_bCancel;
+    };
     bool hasSchemaChanged(){return this->m_bHasSchemaChanged;};
-    int32_t getCoordinationId(){ return this->m_coordinationId;}
+    uint64_t getCoordinationId(){ return this->m_coordinationId;}
     const std::string&  getQuery(){ return this->m_query;}
 
-    void setQueryId(exec::shared::QueryId* q){this->m_pQueryId=q;}
+    void setQueryId(exec::shared::QueryId* q);
     void* getListenerContext() {return this->m_pListenerCtx;}
-    exec::shared::QueryId& getQueryId(){ return *(this->m_pQueryId); }
+    exec::shared::QueryId* getQueryId() {
+        boost::lock_guard<boost::mutex> queryIdLock(this->m_queryIdMutex);
+        return this->m_pQueryId;
+    }
     bool hasError(){ return m_bHasError;}
     status_t getErrorStatus(){ return m_pError!=NULL?(status_t)m_pError->status:QRY_SUCCESS;}
     const DrillClientError* getError(){ return m_pError;}
@@ -190,7 +196,7 @@ class DrillClientQueryResult{
 
     DrillClientImpl* m_pClient;
 
-    int32_t m_coordinationId;
+    uint64_t m_coordinationId;
     const std::string& m_query;
 
     size_t m_numBatches; // number of record batches received so far
@@ -208,6 +214,12 @@ class DrillClientQueryResult{
     // Condition variable to signal arrival of more data. Condition variable is signaled
     // if the recordBatches queue is not empty
     boost::condition_variable m_cv;
+
+    // Mutex to protect QueryId modification
+    boost::mutex m_queryIdMutex;
+
+    // Mutex to protect cancellation modification status
+    boost::mutex m_cancelStatusMutex;
 
     // state
     // if m_bIsQueryPending is true, we continue to wait for results
@@ -300,6 +312,12 @@ class DrillClientImpl : public DrillClientImplBase{
         void Close() ;
         DrillClientError* getError(){ return m_pError;}
         DrillClientQueryResult* SubmitQuery(::exec::shared::QueryType t, const std::string& plan, pfnQueryResultsListener listener, void* listenerCtx);
+
+        /*
+         * Cancel the query with given QueryId. Query must have been submitted using this client instance.
+         */
+        void CancelQuery(exec::shared::QueryId* pQueryId);
+
         void waitForResults();
         connectionStatus_t validateHandshake(DrillUserProperties* props);
         void freeQueryResources(DrillClientQueryResult* pQryResult){
@@ -501,13 +519,13 @@ class PooledDrillClientImpl : public DrillClientImplBase{
         // When picking a drillClientImpl to use, we see how many queries each drillClientImpl
         // is currently executing. If none,  
         std::vector<DrillClientImpl*> m_clientConnections; 
-		boost::mutex m_poolMutex; // protect access to the vector
+        boost::mutex m_poolMutex; // protect access to the vector
         
         //ZookeeperImpl zook;
         
         // Use this to decide which drillbit to select next from the list of drillbits.
         size_t m_lastConnection;
-		boost::mutex m_cMutex;
+        boost::mutex m_cMutex;
 
         // Number of queries executed so far. Can be used to select a new Drillbit from the pool.
         size_t m_queriesExecuted;
